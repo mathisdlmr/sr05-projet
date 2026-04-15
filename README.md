@@ -9,6 +9,8 @@ Navigateur <(Websocket)> server.go <(chan/std)>  application.go <(chan/std)> con
 
 ## Proposition d'organisation du projet
 
+Pour info : j'ai commencé à créer des fichiers un peu au piff histoire de pouvoir push les dossiers, mais c'est à revoir
+
 ```bash
 * cmd/
   * application/

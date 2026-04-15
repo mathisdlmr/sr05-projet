@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Client WebSocket</title>
+</head>
+
+<body>
+
+<b> WebSocket </b>
+<form>
+    <button id="connecter">Connecter</button>
+    <button id="fermer">Fermer</button>
+    host : <input id="host" type="text" value="localhost">
+    port : <input id="port" type="text" value="4444">
+</form>
+
+<hr>
+
+<b> Application </b>
+<form>
+    <button id="envoyer">Envoyer</button>
+    message : <input id="msg" type="text" value="Hello world!">
+</form>
+
+<hr>
+
+<b> Logs </b>
+<div id="logs" style="max-height: 40vh; overflow-y: scroll;"></div>
+
+<script>
+
+var ws = null;
+
+function addToLog(message) {
+    var logs = document.getElementById("logs");
+    var d = document.createElement("div");
+    d.textContent = message;
+    logs.appendChild(d);
+    logs.scroll(0, logs.scrollHeight);
+}
+
+document.getElementById("connecter").onclick = function(evt) {
+    if (ws) return false;
+
+    var host = document.getElementById("host").value;
+    var port = document.getElementById("port").value;
+
+    addToLog("Connexion à ws://" + host + ":" + port + "/ws");
+
+    ws = new WebSocket("ws://" + host + ":" + port + "/ws");
+
+    ws.onopen = function() {
+        addToLog("WebSocket ouverte");
+    };
+
+    ws.onclose = function() {
+        addToLog("WebSocket fermée");
+        ws = null;
+    };
+
+    ws.onmessage = function(evt) {
+        addToLog("Reçu: " + evt.data);
+    };
+
+    ws.onerror = function(evt) {
+        addToLog("Erreur");
+    };
+
+    return false;
+};
+
+document.getElementById("fermer").onclick = function(evt) {
+    if (!ws) return false;
+    ws.close();
+    return false;
+};
+
+// Envoi
+document.getElementById("envoyer").onclick = function(evt) {
+    if (!ws) return false;
+
+    var msg = document.getElementById("msg").value;
+
+    addToLog("Envoi: " + msg);
+    ws.send(msg);
+
+    return false;
+};
+
+</script>
+
+</body>
+</html>

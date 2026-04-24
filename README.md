@@ -46,3 +46,13 @@ Pour info : j'ai commencé à créer des fichiers un peu au piff histoire de pou
 * Les programmes communiquent par stdin et stdout.... Pour tout le reste on utilise stderr
 * On sépare le code de "controle" du code de "l'application"
     * Le code de "controle" intercèpte les messages de l'application et réalise un contrôle (par exemple l'estampillage)
+
+## Modélisation d'un état du jeu
+
+```
+  phase: LG/SORCIERE/VOTE
+  votes: J1:J3,J2:J3,J3:J1
+  joueurs: J1:198.0.0.1:40067, J2:IP:PORT
+  kills: J1, J2
+  alive: J3,J4,J5
+```

@@ -49,10 +49,42 @@ Pour info : j'ai commencé à créer des fichiers un peu au piff histoire de pou
 
 ## Modélisation d'un état du jeu
 
-```
-  phase: LG/SORCIERE/VOTE
-  votes: J1:J3,J2:J3,J3:J1
-  joueurs: J1:198.0.0.1:40067, J2:IP:PORT
-  kills: J1, J2
-  alive: J3,J4,J5
+```yaml
+phase: LG   # LG / SORCIERE / VOTE
+
+joueurs:
+  J1:
+    ip: 198.0.0.1
+    port: 40067
+    role: WOLF   # WOLF / VILLAGER / WITCH
+    alive: false
+  J2:
+    ip: 198.0.0.2
+    port: 40068
+    role: WOLF
+    alive: false
+  J3:
+    ip: 198.0.0.3
+    port: 40069
+    role: VILLAGER
+    alive: true
+  J4:
+    ip: 198.0.0.4
+    port: 40070
+    role: VILAGER
+    alive: true
+  J5:
+    ip: 198.0.0.5
+    port: 40071
+    role: WITCH
+    alive: true
+
+votes:
+  J1: J3
+  J2: J3
+  J3: J1
+
+kills:
+  wolf: J1
+  witch: J2
 ```

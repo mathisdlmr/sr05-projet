@@ -1,7 +1,7 @@
 // Binaire control : S'occupe de la communication entre nos sites, comment partager l'état du jeu, choisir les phases, etc.
 //
 // Lancement :
-//  ./control -id J1 -players 5 -n control_J1
+//  ./control -id J1 -sites 5 -n control_J1
 //
 // Infos : 
 // * Messages entrants sur stdin :
@@ -23,13 +23,13 @@ import (
 
 func main() {
 	id    := flag.String("id", "J1", "identifiant de ce site (ex: J1)")
-	players := flag.Int("players", 5, "nombre total de sites dans le système")
+	nbSites := flag.Int("sites", 5, "nombre total de sites dans le système")
 	name  := flag.String("n", "ctrl", "nom du processus (pour les logs)")
 	flag.Parse()
 
 	log  := logger.New(*name)
 	io   := transport.NewIO()
-	ctrl := control.New(*id, *players, io, log)
+	ctrl := control.New(*id, *nbSites, io, log)
 
 	ctrl.Run()
 }

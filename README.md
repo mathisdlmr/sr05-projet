@@ -59,6 +59,8 @@ Effectivement, de prime abord le jeu du loup-garou est un jeu extrêmement centr
 * seul.e le.a MJ s'occupe d'appliquer les règles 
 * et iel chosit quand est-ce que l'on passe d'une phase du jeu à une autre
 
+![centralized_game](./docs/centralized_game.png "Un jeu de loup-garou classique")
+
 Cependant, si on change un peu notre façon de voir les choses, on peut imaginer un système réparti.
 
 ### Une nouvelle façon de voir le jeu
@@ -69,6 +71,8 @@ Au lieu de visualiser le jeu comme on peut avoir l'habitude d'y jouer, avec tou.
 * A chaque phase, les MJ se réunissent et décident de l'état actuel du jeu et de quelle règle appliquer
 * Ensuite, chacun.e retourne voir son.a participant.e pour l'informer de l'état du jeu
 * A chaque changement dans l'état du jeu (un.e participant.e a vôté pour quelqu'un, fin du phase du jeu, etc.), tou.te.s les MJ se réunissent pour se partager l'information et décider de quoi faire.
+
+![distributed_game](./docs/distributed_game.png "Un jeu de loup-garou distribué !")
 
 On se retrouve alors dans un cadre très particulier du loup-garou : un loup-garou décentralisé entre $n$ MJ
 

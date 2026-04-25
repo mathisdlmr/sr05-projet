@@ -1,4 +1,4 @@
-module sr05-projet
+module github.com/sr05-projet
 
 go 1.18
 

@@ -1,4 +1,5 @@
-// Package logger : Fournit un système de log sur stderr partagé par les 3 binaires : application, control et server
+// Package logger - fournit un système de log sur stderr partagé par les 3 binaires : application, control et server
+
 package logger
 
 import (

@@ -1,10 +1,10 @@
-// Package server : Gère le serveur HTTP et la connexion WebSocket avec le navigateur
+// Package server - Gère le serveur HTTP et la connexion WebSocket avec le navigateur
 //
 // Infos :
 // * Pipeline de communication avec les autres processus : 
 //   * Navigateur --WS--> server --stdout--> application
 //   * application --stdin--> server --WS--> Navigateur
-//
+
 package server
 
 import (
@@ -15,7 +15,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/sr05/loup-garou/internal/logger"
+	"github.com/sr05-projet/internal/logger"
 )
 
 type Server struct {
@@ -69,8 +69,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		line := string(msg)
-		s.log.Debug("handleWS", "nav→app : "+line)
-		// On transmet le message du navigateur vers l'application (stdout)
+		s.log.Debug("handleWS", "nav->app : "+line)
 		fmt.Println(line)
 	}
 }
@@ -83,7 +82,7 @@ func (s *Server) readStdinLoop() {
 		if line == "" {
 			continue
 		}
-		s.log.Debug("readStdinLoop", "app→nav : "+line)
+		s.log.Debug("readStdinLoop", "app->nav : "+line)
 		s.wsSend(line)
 	}
 }

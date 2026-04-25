@@ -9,8 +9,8 @@ import (
 	"flag"
 	"log"
 
-	"github.com/sr05/loup-garou/internal/logger"
-	"github.com/sr05/loup-garou/internal/server"
+	"github.com/sr05-projet/internal/logger"
+	"github.com/sr05-projet/internal/server"
 )
 
 func main() {

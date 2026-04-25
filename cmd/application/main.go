@@ -13,9 +13,9 @@ package main
 import (
 	"flag"
 
-	"github.com/sr05/loup-garou/internal/application"
-	"github.com/sr05/loup-garou/internal/logger"
-	"github.com/sr05/loup-garou/internal/transport"
+	"github.com/sr05-projet/internal/application"
+	"github.com/sr05-projet/internal/logger"
+	"github.com/sr05-projet/internal/transport"
 )
 
 func main() {

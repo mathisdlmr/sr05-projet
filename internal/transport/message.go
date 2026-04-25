@@ -1,5 +1,5 @@
-// Package transport : gère la communication inter-processus partagé par les 3 binaires : application, control et server
-// message : gère la construction et lectures des messages envoyés/reçus
+// Package transport - gère la communication inter-processus partagé par les 3 binaires : application, control et server
+// message.go - gère la construction et lectures des messages envoyés/reçus
 //
 // Format des messages sur stdin/stdout :
 //  <separateur_de_champ><séparateur_de_clé><clé><séparateur_de_clé><valeur><separateur_de_champ><séparateur_de_clé><clé><séparateur_de_clé><valeur>
@@ -7,7 +7,7 @@
 // Exemples : 
 //  ,=snd=arthur,=hlg=38
 //  /=snd=arthur-pid~8286/=hlg=(38,4)
-//  
+
 package transport
 
 import "strings"

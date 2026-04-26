@@ -14,8 +14,8 @@ import (
 	"flag"
 
 	"github.com/sr05-projet/internal/application"
-	"github.com/sr05-projet/internal/logger"
-	"github.com/sr05-projet/internal/transport"
+	"github.com/sr05-projet/pkg/logger"
+	"github.com/sr05-projet/pkg/transport"
 )
 
 func main() {

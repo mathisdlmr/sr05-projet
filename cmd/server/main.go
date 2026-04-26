@@ -9,7 +9,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/sr05-projet/internal/logger"
+	"github.com/sr05-projet/pkg/logger"
 	"github.com/sr05-projet/internal/server"
 )
 

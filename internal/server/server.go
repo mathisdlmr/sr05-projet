@@ -15,7 +15,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/sr05-projet/internal/logger"
+	"github.com/sr05-projet/pkg/logger"
 )
 
 type Server struct {

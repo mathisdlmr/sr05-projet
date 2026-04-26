@@ -1,4 +1,3 @@
-
 // Package transport - gère la communication inter-processus partagé par les 3 binaires : application, control et server
 // io.go - gère la lecture sur stdin et écriture sur stdout
 

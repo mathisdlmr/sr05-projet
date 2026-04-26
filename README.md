@@ -48,12 +48,6 @@ Pour info : j'ai commencé à créer des fichiers un peu au piff histoire de pou
   * ...
 ```
 
-### Consignes à garder en tête (pas encore implémentées)
-
-- Les programmes communiquent par stdin et stdout.... Pour tout le reste on utilise stderr
-- On sépare le code de "controle" du code de "l'application"
-  - Le code de "controle" intercèpte les messages de l'application et réalise un contrôle (par exemple l'estampillage)
-
 ## Prémisses
 
 > _Choix étrange d'avoir choisi le jeu du loup-garou pour modéliser une application répartie..._
@@ -118,42 +112,81 @@ Le projet porte sur la création d'une application répartie respectant les cont
 
 ## Modélisation d'un état du jeu
 
-```yaml
-phase: LG # LG / SORCIERE / VOTE
-
-joueurs:
-  J1:
-    ip: 198.0.0.1
-    port: 40067
-    role: WOLF # WOLF / VILLAGER / WITCH
-    alive: false
-  J2:
-    ip: 198.0.0.2
-    port: 40068
-    role: WOLF
-    alive: false
-  J3:
-    ip: 198.0.0.3
-    port: 40069
-    role: VILLAGER
-    alive: true
-  J4:
-    ip: 198.0.0.4
-    port: 40070
-    role: VILAGER
-    alive: true
-  J5:
-    ip: 198.0.0.5
-    port: 40071
-    role: WITCH
-    alive: true
-
-votes:
-  J1: J3
-  J2: J3
-  J3: J1
-
-kills:
-  wolf: J1
-  witch: J2
+```go
+GameState{
+    Phase: "VOTE", // "LOBBY" | "NIGHT" | "WITCH" | "VOTE" | "END"
+    Players: {
+        "J1": { ID: "J1", Role: "WOLF", Alive: false }, // TODO : sûrement une section IP+port à ajouter ici par la suite
+        "J2": { ID: "J2", Role: "WOLF", Alive: true  },
+        "J3": { ID: "J3", Role: "WITCH", Alive: true  },
+        "J4": { ID: "J4", Role: "VILLAGER", Alive: true  },
+        "J5": { ID: "J5", Role: "VILLAGER", Alive: true  },
+    },
+    Votes: {
+        "J2": "J4",
+        "J3": "J2",
+        "J4": "J2",
+        "J5": "J2",
+    },
+    KillWolf: "J4",
+    KillWitch: "save:J4", // ou "poison:J<id>" ou "" (rien)
+    Winner: "", // "" | "WOLVES" | "VILLAGERS"
+    MyID: "J3", // identifiant du joueur local (ajouté par application avant envoi)
+}
 ```
+
+## Communication entre les processus
+
+```
+Navigateur ---- JSON ----> Server
+Server     --- "/=type=state/=data={}" ---> Navigateur # TODO : c'est à revoir ça
+
+Server ---- Transparent ----> Application
+Application ---- Transparent ----> Server
+
+Application --- "/=type=.../=..." ---> Control
+Control --- "/=type=state/=data={}" ---> Application
+
+Control --- "BROADCAST:/=from=.../" ---> [réseau] -> autres Controls # Le from ici permet d'éviter de lire son broadcast
+```
+
+### Actions Navigateur -> Serveur
+
+```json
+// Rejoindre le lobby
+{ "action": "join" }
+
+// Indiquer qu'on est prêt à démarrer
+{ "action": "ready" }
+
+// Vote du village (phase VOTE)
+{ "action": "vote", "target": "J2" }
+
+// Les loups choisissent leur victime (phase NIGHT, loups seulement)
+{ "action": "wolfkill", "target": "J4" }
+
+// La sorcière sauve la victime des loups (phase WITCH, sorcière seulement)
+{ "action": "witchsave" }
+
+// La sorcière empoisonne quelqu'un (phase WITCH, sorcière seulement)
+{ "action": "witchkill", "target": "J5" }
+
+// La sorcière ne fait rien (phase WITCH, sorcière seulement)
+{ "action": "witchpass" }
+```
+
+### Serveur -> Navigateur
+
+On forward tout de l'application de manière bête et méchante
+
+Soit un état complet du jeu : `/=type=state/=data={"phase":"VOTE","players":{...},"votes":{...},"myId":"J3"}`
+
+Soit une erreur : `/=type=error/=msg=action interdite pendant cette phase`
+
+### Application -> Control
+
+Même format que Navigateur -> Serveur mais au format imposé dans l'énoncé (comme `/=type=join/=player=J3` par exemple)
+
+### Control -> Control
+
+Même format que Application -> Control, mais on ajoute "BROADCAST:/=from=J<id_joueur>/=type=..."

@@ -75,6 +75,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 }
 
 // readStdinLoop - lit stdin en continu et pousse chaque ligne vers la WebSocket
+//
+// TODO : pour l'instant ici on envoie les messages avec un format un peu moche ici...
+// Grosso modo les messages sont justes forwardés, donc on a le même format qu'entre l'application et le centre de controle
+// Ca serait cool à terme de parser ça en JSON pour que la communication entre server <-> navigateur soit en JSON
 func (s *Server) readStdinLoop() {
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {

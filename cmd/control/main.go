@@ -10,7 +10,7 @@
 // * Messages sortants sur stdout :
 //   * Sans préfixe    -> destinés à l'application locale
 //   * "BROADCAST:..." -> à router vers les autres centres de contrôle (par le script réseau)
-//
+
 package main
 
 import (
@@ -22,14 +22,13 @@ import (
 )
 
 func main() {
-	id    := flag.String("id", "J1", "identifiant de ce site (ex: J1)")
+	id := flag.String("id", "J1", "identifiant de ce site (ex: J1)")
 	nbSites := flag.Int("sites", 5, "nombre total de sites dans le système")
-	name  := flag.String("n", "ctrl", "nom du processus (pour les logs)")
+	name := flag.String("n", "ctrl", "nom du processus (pour les logs)")
 	flag.Parse()
 
-	log  := logger.New(*name)
-	io   := transport.NewIO()
+	log := logger.New(*name)
+	io := transport.NewIO()
 	ctrl := control.New(*id, *nbSites, io, log)
-
 	ctrl.Run()
 }

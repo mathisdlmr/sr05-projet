@@ -1,53 +1,5 @@
 # SR05 - Projet
 
-## TODO : suppr une fois le projet terminé
-
-### Proposition d'architecture du système
-
-Navigateur <(Websocket)> server.go <(chan/std)> application.go <(chan/std)> control.go
-^ |
-| ⌄
-Navigateur <(Websocket)> server.go <(chan/std)> application.go <(chan/std)> control.go
-
-### Proposition d'organisation du projet
-
-Pour info : j'ai commencé à créer des fichiers un peu au piff histoire de pouvoir push les dossiers, mais c'est à revoir
-
-```bash
-* cmd/
-  * application/
-    * main.go       # Lance l'application (créé un logger, un io, et on lance internal/application)
-  * control/
-    * main.go       # Lance le contrôle (créé un logger, un io, et on lance internal/control)
-  * server/
-    * main.go       # Lance le serveur (créé un logger, un io, et on lance internal/server)
-* internal/
-  * application/
-    * app.go        # Contient la logique principale de l'application
-    * filter.go     # Forme un filtre sur ce que l'on souhaite forward ou non au server (ce que le joueur a le droit de voir ou pas)
-    * state.go      # Contient les structures de données représentant l'état du jeu côté application
-  * control/
-    * control.go    # Contient la logique principale du centre de contrôle
-    * state.go      # Contient les structures de données représentant l'état du jeu côté centre de contrôle
-    * <horloge.go, snapshot.go...> Enfin bref ce qui est demandé pour le projet
-  * server/
-    * server.go     # Gère le serveur (pour communiquer via ws avec un navigateur)
-* pkg/
-  * logger/
-    * logger.go     # Logger mis en forme (couleur, nom des processus, PID, etc.)
-  * transport/
-    * io.go         # Gère la lecture sur stdin et écriture sur stdout
-    * messages.go   # Gère la construction et lectures des messages envoyés/reçus
-* web/
-  * index.html
-  * ...
-* scripts/
-  * 4-ring.sh
-  * 5-mesh.sh
-  * 7-ring_with_ctl.sh
-  * ...
-```
-
 ## Prémisses
 
 > _Choix étrange d'avoir choisi le jeu du loup-garou pour modéliser une application répartie..._
@@ -109,6 +61,45 @@ Le projet porte sur la création d'une application répartie respectant les cont
 - L'application répartie est clairement structurée
   - Utiliser une architecture qui distingue les fonctionnalités applicatives des fonctionnalités de contrôle.
   - Définir au moins un réseau convaincant pour les tests.
+
+## Organisation du projet
+
+Pour info : j'ai commencé à créer des fichiers un peu au piff histoire de pouvoir push les dossiers, mais c'est à revoir
+
+```bash
+* cmd/
+  * application/
+    * main.go       # Lance l'application (créé un logger, un io, et on lance internal/application)
+  * control/
+    * main.go       # Lance le contrôle (créé un logger, un io, et on lance internal/control)
+  * server/
+    * main.go       # Lance le serveur (créé un logger, un io, et on lance internal/server)
+* internal/
+  * application/
+    * app.go        # Contient la logique principale de l'application
+    * filter.go     # Forme un filtre sur ce que l'on souhaite forward ou non au server (ce que le joueur a le droit de voir ou pas)
+    * state.go      # Contient les structures de données représentant l'état du jeu côté application
+  * control/
+    * control.go    # Contient la logique principale du centre de contrôle
+    * state.go      # Contient les structures de données représentant l'état du jeu côté centre de contrôle
+    * <horloge.go, snapshot.go...> Enfin bref ce qui est demandé pour le projet
+  * server/
+    * server.go     # Gère le serveur (pour communiquer via ws avec un navigateur)
+* pkg/
+  * logger/
+    * logger.go     # Logger mis en forme (couleur, nom des processus, PID, etc.)
+  * transport/
+    * io.go         # Gère la lecture sur stdin et écriture sur stdout
+    * messages.go   # Gère la construction et lectures des messages envoyés/reçus
+* web/
+  * index.html
+  * ...
+* scripts/
+  * 4-ring.sh
+  * 5-mesh.sh
+  * 7-ring_with_ctl.sh
+  * ...
+```
 
 ## Modélisation d'un état du jeu
 

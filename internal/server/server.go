@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"sync"
 
 	"github.com/gorilla/websocket"
 	"github.com/sr05-projet/pkg/logger"
@@ -22,7 +21,7 @@ type Server struct {
 	addr string
 	port string
 	log  *logger.Logger
-	ws *websocket.Conn
+	ws   *websocket.Conn
 }
 
 var upgrader = websocket.Upgrader{

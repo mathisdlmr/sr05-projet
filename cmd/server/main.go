@@ -7,10 +7,9 @@ package main
 
 import (
 	"flag"
-	"log"
 
-	"github.com/sr05-projet/pkg/logger"
 	"github.com/sr05-projet/internal/server"
+	"github.com/sr05-projet/pkg/logger"
 )
 
 func main() {

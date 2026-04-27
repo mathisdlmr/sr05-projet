@@ -107,3 +107,31 @@ button {
 button:hover {
     background-color: var(--primary-hover);
 }
+
+.log-container {
+    margin-top: 1.5rem;
+    background-color: #f9fafb;
+    color: var(--text-main);
+    border: 1px solid #e5e7eb;
+    padding: 1rem;
+    border-radius: 8px;
+    height: 250px;
+    overflow-y: auto;
+    font-family: 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', monospace;
+    font-size: 0.8rem;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.log-entry {
+    line-height: 1.4;
+    border-bottom: 1px solid #f3f4f6;
+    padding-bottom: 0.25rem;
+    word-break: break-all;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}

@@ -17,6 +17,7 @@
             <input type="text" id="message" placeholder="Entrez votre message ici" autocomplete="off" required>
             <button type="submit" id="send">Envoyer</button>
         </form>
+        <div id="logs" class="log-container"></div>
     </div>
 
     <script>
@@ -37,6 +38,15 @@
         ws.onerror = () => {
             statusDiv.className = "status status-disconnected";
             statusText.textContent = "Erreur";
+        };
+
+        ws.onmessage = (event) => {
+            const logs = document.getElementById("logs");
+            const entry = document.createElement("div");
+            entry.className = "log-entry";
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${event.data}`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
         };
 
         document.getElementById("message-form").onsubmit = function (evt) {

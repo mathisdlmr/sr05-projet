@@ -1,7 +1,7 @@
 // Package server - Gère le serveur HTTP et la connexion WebSocket avec le navigateur
 //
 // Infos :
-// * Pipeline de communication avec les autres processus : 
+// * Pipeline de communication avec les autres processus :
 //   * Navigateur --WS--> server --stdout--> application
 //   * application --stdin--> server --WS--> Navigateur
 
@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"sync"
 
 	"github.com/gorilla/websocket"
 	"github.com/sr05-projet/pkg/logger"
@@ -22,14 +21,14 @@ type Server struct {
 	addr string
 	port string
 	log  *logger.Logger
-	ws *websocket.Conn
+	ws   *websocket.Conn
 }
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-func New(addr, port, log *logger.Logger) *Server {
+func New(addr string, port string, log *logger.Logger) *Server {
 	return &Server{
 		addr: addr,
 		port: port,
@@ -49,7 +48,7 @@ func (s *Server) Run() error {
 	return http.ListenAndServe(addr, mux)
 }
 
-// handleWS - handler HTTP qui upgrade la connexion en WebSocket, 
+// handleWS - handler HTTP qui upgrade la connexion en WebSocket,
 // puis lit en boucle les messages du navigateur et les écrit sur stdout
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	cnx, err := upgrader.Upgrade(w, r, nil)

@@ -1,0 +1,5 @@
+- Faire l'index.html pour avoir l'interface user, et pouvoir lancer des requêtes sur la sebsocket avec server.go
+- Vérifier que tout fonctionne, pour l'instant c'est du feeling
+- Sortir du format -réseau de processus pipés- pour permettre de créer un réseau sur IP
+- Faire les TODO dans le code
+- Implémenter le cahier des charges sur Moodle

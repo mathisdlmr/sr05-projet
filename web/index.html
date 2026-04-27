@@ -1,10 +1,62 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="utf-8">
-    </head>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SR05 - Web Client</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Client Web</h1>
+        <div id="status" class="status status-connecting">
+            <span class="status-dot"></span>
+            <span id="status-text">Connexion...</span>
+        </div>
+        <form id="message-form">
+            <input type="text" id="message" placeholder="Entrez votre message ici" autocomplete="off" required>
+            <button type="submit" id="send">Envoyer</button>
+        </form>
+        <div id="logs" class="log-container"></div>
+    </div>
 
-    <body>
+    <script>
+        const ws = new WebSocket("ws://localhost:4444/ws");
+        const statusDiv = document.getElementById("status");
+        const statusText = document.getElementById("status-text");
 
-    </body>
+        ws.onopen = () => {
+            statusDiv.className = "status status-connected";
+            statusText.textContent = "Connecté";
+        };
+
+        ws.onclose = () => {
+            statusDiv.className = "status status-disconnected";
+            statusText.textContent = "Déconnecté";
+        };
+
+        ws.onerror = () => {
+            statusDiv.className = "status status-disconnected";
+            statusText.textContent = "Erreur";
+        };
+
+        ws.onmessage = (event) => {
+            const logs = document.getElementById("logs");
+            const entry = document.createElement("div");
+            entry.className = "log-entry";
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${event.data}`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+        };
+
+        document.getElementById("message-form").onsubmit = function (evt) {
+            evt.preventDefault();
+            const input = document.getElementById("message");
+            if (input.value.trim() !== "") {
+                ws.send(input.value);
+                input.value = ""; // Réinitialise l'input après l'envoi
+            }
+        };
+    </script>
+</body>
 </html>

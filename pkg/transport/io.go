@@ -23,6 +23,13 @@ func NewIO() *IO {
 	}
 }
 
+func NewIOFromReadWriter(r io.Reader, w io.Writer) *IO {
+	return &IO{
+		scanner: bufio.NewScanner(r),
+		out:     w,
+	}
+}
+
 // ReadLine - lit la prochaine ligne non vide sur stdin
 // Retourne ("", io.EOF) quand stdin est fermé
 func (t *IO) ReadLine() (string, error) {

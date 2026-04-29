@@ -14,6 +14,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/sr05-projet/pkg/logger"
@@ -34,9 +36,19 @@ type Control struct {
 	villageVotes map[string]string // joueur_voteur_id: cible_id
 
 	witchDone bool
+
+	// File d'attente répartie (Algo 28 du poly) — cf. queue.go
+	lamport int
+	tab     []tabEntry
+	myIndex int
+	pending *pendingSC
 }
 
 func New(myID string, nbSites int, io *transport.IO, log *logger.Logger) *Control {
+	tab := make([]tabEntry, nbSites)
+	for i := range tab {
+		tab[i] = tabEntry{Kind: entryRelease, Date: 0}
+	}
 	return &Control{
 		myID:         myID,
 		nbSites:      nbSites,
@@ -47,6 +59,9 @@ func New(myID string, nbSites int, io *transport.IO, log *logger.Logger) *Contro
 		lobbyReady:   make(readySet),
 		wolfVotes:    make(map[string]string),
 		villageVotes: make(map[string]string),
+		lamport:      0,
+		tab:          tab,
+		myIndex:      siteIndex(myID),
 	}
 }
 
@@ -236,18 +251,7 @@ func (c *Control) resolveNight() {
 
 // resolveVote - élimine le joueur le plus voté, puis passe à la nuit suivante
 func (c *Control) resolveVote() {
-	count := make(map[string]int)
-	for _, target := range c.state.Votes {
-		count[target]++
-	}
-	var eliminated string
-	max := 0
-	for id, n := range count {
-		if n > max {
-			max = n
-			eliminated = id
-		}
-	}
+	eliminated := topVoted(c.state.Votes)
 	if eliminated != "" {
 		c.killPlayer(eliminated)
 		c.log.Info("vote", eliminated+" éliminé par le village")
@@ -262,19 +266,34 @@ func (c *Control) resolveVote() {
 
 // topWolfTarget - retourne la cible la plus votée par les loups
 func (c *Control) topWolfTarget() string {
-	count := make(map[string]int)
-	for _, t := range c.wolfVotes {
-		count[t]++
+	return topVoted(c.wolfVotes)
+}
+
+// topVoted retourne la cible ayant reçu le plus de votes.
+// En cas d'égalité, l'ID lexicographiquement minimal est choisi pour garantir
+// que tous les sites prennent la même décision (départage déterministe).
+func topVoted(votes map[string]string) string {
+	if len(votes) == 0 {
+		return ""
 	}
+	count := make(map[string]int)
+	for _, target := range votes {
+		count[target]++
+	}
+	candidates := make([]string, 0, len(count))
+	for id := range count {
+		candidates = append(candidates, id)
+	}
+	sort.Strings(candidates)
+	winner := ""
 	max := 0
-	target := ""
-	for t, n := range count {
-		if n > max {
-			max = n
-			target = t
+	for _, id := range candidates {
+		if count[id] > max {
+			max = count[id]
+			winner = id
 		}
 	}
-	return target
+	return winner
 }
 
 // ========= Traitement des messages de l'application (locale) ========= //
@@ -318,7 +337,7 @@ func (c *Control) handleFromApp(raw string) {
 		c.witchDone = true
 		c.log.Info("witch", "sorcière sauve "+c.state.KillWolf)
 		c.broadcast(transport.Build("type", "witchsave", "player", player))
-		c.resolveNight()
+		c.tryResolveNight()
 
 	case "witchkill":
 		if c.state.Phase != PhaseWitch || c.witchDone {
@@ -329,7 +348,7 @@ func (c *Control) handleFromApp(raw string) {
 		c.witchDone = true
 		c.log.Info("witch", "sorcière empoisonne "+target)
 		c.broadcast(transport.Build("type", "witchkill", "player", player, "target", target))
-		c.resolveNight()
+		c.tryResolveNight()
 
 	case "witchpass":
 		if c.state.Phase != PhaseWitch || c.witchDone {
@@ -338,7 +357,7 @@ func (c *Control) handleFromApp(raw string) {
 		c.witchDone = true
 		c.log.Info("witch", "sorcière passe")
 		c.broadcast(transport.Build("type", "witchpass", "player", player))
-		c.resolveNight()
+		c.tryResolveNight()
 
 	case "vote":
 		if c.state.Phase != PhaseVote {
@@ -367,15 +386,61 @@ func (c *Control) handleFromControl(raw string) {
 	msgType := transport.Get(raw, "type")
 	c.log.Debug("ctrl->ctrl", fmt.Sprintf("de %s : type=%s", from, msgType))
 
+	// Messages de la file d'attente répartie (cf. queue.go).
 	switch msgType {
-	case "state": // TODO : je savais pas quoi faire, donc si on reçoit un state pour l'instant on fusionne
+	case "req":
+		h, err := strconv.Atoi(transport.Get(raw, "h"))
+		if err != nil {
+			c.log.Warn("handleFromControl", "req sans h valide: "+raw)
+			return
+		}
+		c.handleReq(from, h)
+		return
+	case "rel":
+		h, err := strconv.Atoi(transport.Get(raw, "h"))
+		if err != nil {
+			c.log.Warn("handleFromControl", "rel sans h valide: "+raw)
+			return
+		}
+		c.handleRel(from, h)
+		return
+	case "ack":
+		if transport.Get(raw, "to") != c.myID {
+			return // accusé destiné à un autre site
+		}
+		h, err := strconv.Atoi(transport.Get(raw, "h"))
+		if err != nil {
+			c.log.Warn("handleFromControl", "ack sans h valide: "+raw)
+			return
+		}
+		c.handleAck(from, h)
+		return
+	}
+
+	switch msgType {
+	case "state":
+		// État autoritaire envoyé par un site qui vient de sortir de SC :
+		// remplacement direct (pas de merge), en préservant notre MyID local.
 		data := transport.Get(raw, "data")
 		var remote GameState
 		if err := json.Unmarshal([]byte(data), &remote); err != nil {
 			c.log.Error("handleFromControl", "unmarshal: "+err.Error())
 			return
 		}
-		c.mergeState(remote)
+		remote.MyID = c.myID
+		// Synchroniser les trackers locaux (hors GameState) avec la nouvelle phase.
+		// Le SC-winner les met à jour dans transitionToX ; les autres sites doivent
+		// le faire ici à l'adoption de l'état pour ne pas garder de données stale.
+		if remote.Phase != c.state.Phase {
+			switch remote.Phase {
+			case PhaseNight:
+				c.wolfVotes = make(map[string]string)
+				c.witchDone = false
+			case PhaseVote:
+				c.villageVotes = make(map[string]string)
+			}
+		}
+		c.state = remote
 		c.sendToApp()
 
 	case "join":
@@ -403,7 +468,7 @@ func (c *Control) handleFromControl(raw string) {
 		if !c.witchDone {
 			c.state.KillWitch = "save:" + c.state.KillWolf
 			c.witchDone = true
-			c.resolveNight()
+			c.tryResolveNight()
 		}
 
 	case "witchkill":
@@ -411,13 +476,13 @@ func (c *Control) handleFromControl(raw string) {
 			target := transport.Get(raw, "target")
 			c.state.KillWitch = target
 			c.witchDone = true
-			c.resolveNight()
+			c.tryResolveNight()
 		}
 
 	case "witchpass":
 		if !c.witchDone {
 			c.witchDone = true
-			c.resolveNight()
+			c.tryResolveNight()
 		}
 
 	case "vote":
@@ -431,62 +496,86 @@ func (c *Control) handleFromControl(raw string) {
 
 // ========= Gestion des différentes phases et transitions ========= //
 
-// tryStartGame - démarre la partie si tous les sites sont connectés et prêts
+// tryStartGame - démarre la partie si tous les sites sont connectés et prêts.
+// Demande la section critique pour que UN seul site exécute assignRoles + transitionToNight.
 func (c *Control) tryStartGame() {
-	if len(c.lobbyJoined) == c.nbSites && len(c.lobbyReady) == c.nbSites {
-		c.log.Success("lobby", "tous les sites sont prêts -> démarrage !")
-		c.assignRoles()
-		c.transitionToNight()
+	if len(c.lobbyJoined) < c.nbSites || len(c.lobbyReady) < c.nbSites {
+		return
 	}
+	c.requestSC(pendingSC{
+		name: "startGame",
+		fn: func() {
+			// Re-vérification dans la SC : un autre site a peut-être déjà démarré.
+			if c.state.Phase != PhaseLobby {
+				return
+			}
+			if len(c.lobbyJoined) < c.nbSites || len(c.lobbyReady) < c.nbSites {
+				return
+			}
+			c.log.Success("lobby", "tous les sites sont prêts -> démarrage !")
+			c.assignRoles()
+			c.transitionToNight()
+		},
+	})
 }
 
-// tryResolveWolves - passe à la phase sorcière quand tous les loups ont voté
+// tryResolveWolves - passe à la phase sorcière quand tous les loups ont voté.
 func (c *Control) tryResolveWolves() {
-	if len(c.wolfVotes) >= c.countAliveWolves() && c.countAliveWolves() > 0 {
-		c.state.KillWolf = c.topWolfTarget()
-		c.log.Info("wolfkill", "consensus loups -> cible: "+c.state.KillWolf)
-		c.transitionToWitch()
+	alive := c.countAliveWolves()
+	if alive == 0 || len(c.wolfVotes) < alive {
+		return
 	}
+	c.requestSC(pendingSC{
+		name: "resolveWolves",
+		fn: func() {
+			if c.state.Phase != PhaseNight {
+				return
+			}
+			n := c.countAliveWolves()
+			if n == 0 || len(c.wolfVotes) < n {
+				return
+			}
+			c.state.KillWolf = c.topWolfTarget()
+			c.log.Info("wolfkill", "consensus loups -> cible: "+c.state.KillWolf)
+			c.transitionToWitch()
+		},
+	})
 }
 
-// tryResolveVote - passe à la nuit suivante quand tous les vivants ont voté
+// tryResolveVote - passe à la nuit suivante quand tous les vivants ont voté.
 func (c *Control) tryResolveVote() {
-	if len(c.villageVotes) >= c.countAlive() {
-		c.resolveVote()
+	if len(c.villageVotes) < c.countAlive() {
+		return
 	}
+	c.requestSC(pendingSC{
+		name: "resolveVote",
+		fn: func() {
+			if c.state.Phase != PhaseVote {
+				return
+			}
+			if len(c.villageVotes) < c.countAlive() {
+				return
+			}
+			c.resolveVote()
+		},
+	})
 }
 
-// ========= Merge de réplicas ========= //
-
-// mergeState - intègre un état distant dans le réplica local (pour l'instant on n'ajoute que les joueurs et votes inconnus)
-//
-// TODO : j'ai aucune idée de comment on est censés gérer ça proprement ...
-// Peut-être faire comme on avait dit avec aucun merge mais juste l'envoie d'actions ?
-func (c *Control) mergeState(remote GameState) {
-	for id, p := range remote.Players {
-		if _, exists := c.state.Players[id]; !exists {
-			c.state.Players[id] = p
-			c.lobbyJoined[id] = true
-		}
+// tryResolveNight - applique les morts de la nuit (transition WITCH → VOTE/END).
+// La sorcière a déjà donné son verdict (witchDone == true) avant l'appel.
+func (c *Control) tryResolveNight() {
+	if c.state.Phase != PhaseWitch || !c.witchDone {
+		return
 	}
-	for voter, target := range remote.Votes {
-		if _, exists := c.state.Votes[voter]; !exists {
-			c.state.Votes[voter] = target
-			c.villageVotes[voter] = target
-		}
-	}
-	phaseOrder := map[Phase]int{
-		PhaseLobby: 0,
-		PhaseNight: 1,
-		PhaseWitch: 2,
-		PhaseVote:  3,
-		PhaseEnd:   4,
-	}
-	if phaseOrder[remote.Phase] > phaseOrder[c.state.Phase] { // L'idée est d'adopter la phase distante si elle est plus avancée
-		c.state.Phase = remote.Phase
-		c.state.KillWolf = remote.KillWolf
-		c.state.Winner = remote.Winner
-	}
+	c.requestSC(pendingSC{
+		name: "resolveNight",
+		fn: func() {
+			if c.state.Phase != PhaseWitch || !c.witchDone {
+				return
+			}
+			c.resolveNight()
+		},
+	})
 }
 
 func (c *Control) marshalState() string {

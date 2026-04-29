@@ -38,7 +38,7 @@ func New(addr string, port string, log *logger.Logger) *Server {
 
 func (s *Server) Run() error {
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir("../../web")))
+	mux.Handle("/", http.FileServer(http.Dir("web")))
 	mux.HandleFunc("/ws", s.handleWS)
 
 	go s.readStdinLoop()

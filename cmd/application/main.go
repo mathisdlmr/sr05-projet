@@ -1,6 +1,6 @@
 // Binaire application : Contient la logique du jeu, et le filtrage entre le client (server) et le système réparti (control)
 //
-// Lancement : 
+// Lancement :
 //  ./application -id J1 -n application_J1
 //
 // Infos :
@@ -25,7 +25,13 @@ func main() {
 
 	log := logger.New(*name)
 	io := transport.NewIO()
-	app := application.New(*id, io, log)
+
+	addr := flag.String("addr", "localhost", "adresse d'écoute")
+	port := flag.String("port", "4444", "port HTTP/WS")
+
+	flag.Parse()
+
+	app := application.New(*id, io, log, *addr, *port)
 
 	app.Run()
 }

@@ -41,8 +41,6 @@ func (s *Server) Run() error {
 	mux.Handle("/", http.FileServer(http.Dir("../../web")))
 	mux.HandleFunc("/ws", s.handleWS)
 
-	go s.readStdinLoop()
-
 	addr := s.addr + ":" + s.port
 	s.log.Info("Run", "serveur lancé sur http://"+addr)
 	return http.ListenAndServe(addr, mux)

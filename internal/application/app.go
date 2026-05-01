@@ -1,5 +1,5 @@
 // Package application - Contient la logique du jeu, et le filtrage entre le client (server) et le système réparti (control)
-// app.go - contient le processus applicatif, qui reçoit les messages du navigateur (JSON) et du centre de contrôle (type=state, type=error), 
+// app.go - contient le processus applicatif, qui reçoit les messages du navigateur (JSON) et du centre de contrôle (type=state, type=error),
 // maintient l'état de jeu local, et envoie les actions du joueur vers le centre de contrôle, ainsi que la vue filtrée vers le navigateur
 //
 // Communication :
@@ -15,6 +15,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/gorilla/websocket"
+	"github.com/sr05-projet/internal/server"
 	"github.com/sr05-projet/pkg/logger"
 	"github.com/sr05-projet/pkg/transport"
 )
@@ -25,20 +27,33 @@ type App struct {
 	state  GameState
 	io     *transport.IO
 	log    *logger.Logger
+	addr   string
+	port   string
+	ws     *websocket.Conn
+	srv    *server.Server
 }
 
-func New(myID string, io *transport.IO, log *logger.Logger) *App {
+func New(myID string, io *transport.IO, log *logger.Logger, addr string, port string) *App {
 	return &App{
 		myID:   myID,
 		myRole: RoleUnknown,
 		state:  NewGameState(myID),
 		io:     io,
 		log:    log,
+		addr:   addr,
+		port:   port,
 	}
 }
 
 func (a *App) Run() {
 	a.log.Info("Run", "démarrage application, joueur="+a.myID)
+
+	a.srv = server.New(a.addr, a.port, a.log)
+	//lance l'écoute pour les connexion
+	//upgrade les connextion en web socket
+	// la connection a.srv.ws est set a la dernière websocket ouverte
+	go a.srv.Run()
+
 	for {
 		line, err := a.io.ReadLine()
 		if err == io.EOF {
@@ -50,12 +65,16 @@ func (a *App) Run() {
 			return
 		}
 
+		// Ici la division doit se faire entre
+		// - écouter la websocket du serveur (quand on attend un input utilisateur)
+		// - écouter les messages de l'exterieur/les changements d'état
 		if strings.HasPrefix(line, "{") {
 			a.handleFromBrowser(line)
 		} else {
 			a.handleFromControl(line)
 		}
 	}
+
 }
 
 // ========= Messages venant du navigateur (JSON) ========= //

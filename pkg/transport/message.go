@@ -1,62 +1,110 @@
 // Package transport - gère la communication inter-processus partagé par les 3 binaires : application, control et server
 // message.go - gère la construction et lectures des messages envoyés/reçus
 //
+// Les messages sont structurés autour de champs fixes (type, timestamp, sender)
+// et de données supplémentaires (data) formatées à plat (flat key-value).
 // Format des messages sur stdin/stdout :
-//  <separateur_de_champ><séparateur_de_clé><clé><séparateur_de_clé><valeur><separateur_de_champ><séparateur_de_clé><clé><séparateur_de_clé><valeur>
+//  <separateur_de_champ><séparateur_de_clé><clé><séparateur_de_clé><valeur>...
 //
-// Exemples : 
-//  ,=snd=arthur,=hlg=38
-//  /=snd=arthur-pid~8286/=hlg=(38,4)
+// Exemple :
+//  /=timestamp=17/=sender=1/=type=vote/=player=J1
+//
+// On transforme ça en donnée structurée :
+// Message{
+// Type: "Control",
+// Timestamp: 17,
+// Sender: 1,
+// Data: map[string]string{
+//   "type": "vote",
+//   "player": "J1",
+// }
+//}
 
 package transport
 
-import "strings"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
 
 const (
 	fieldSep  = "/"
 	keyValSep = "="
 )
 
-// Field - met un couple (clé, valeur) au format souhaité
-func Field(key, val string) string {
-	return fieldSep + keyValSep + key + keyValSep + val
+// Types de messages
+const (
+	CriticalSection = "critical_section"
+	ControlMessage  = "control_message"
+	DataMessage     = "data_message"
+)
+
+// Message représente un type de message avec horodatage, expéditeur et des données structurées.
+type Message struct {
+	Type      string
+	Timestamp *int
+	Sender    int
+	Data      map[string]string
 }
 
-// Build - construit un message complet à partir d'une liste ordonnée de paires (clé, valeur)
-// Les couples sont envoyés dans le même ordre que tels qu'ils sont reçus en paramètre
-// Exemple : msg := transport.Build("type", "vote", "player", "J1", "target", "J3")
-func Build(keyvals ...string) string {
-	if len(keyvals)%2 != 0 {
-		panic("transport.Build: nombre impair d'arguments, il manque une clé ou une valeur")
-	}
-	out := ""
-	for i := 0; i < len(keyvals); i += 2 {
-		out += Field(keyvals[i], keyvals[i+1])
-	}
-	return out
-}
-
-// Get - retourne la valeur associée à key dans msg, ou "" si absente
-func Get(msg, key string) string {
+// ParseMessage construit un objet Message à partir de la chaîne de caractères formatée.
+func ParseMessage(msg string) (*Message, error) {
 	if len(msg) < 4 {
-		return ""
+		return nil, fmt.Errorf("message too short")
 	}
+
+	// Parse fields
 	sep := msg[0:1]
 	pairs := strings.Split(msg[1:], sep)
+
+	var timestamp *int
+	sender := 0
+	msgType := ""
+	data := make(map[string]string)
+
 	for _, pair := range pairs {
 		if len(pair) < 3 {
 			continue
 		}
 		equ := pair[0:1]
 		parts := strings.SplitN(pair[1:], equ, 2)
-		if len(parts) == 2 && parts[0] == key {
-			return parts[1]
+		if len(parts) == 2 {
+			switch parts[0] {
+			case "type":
+				msgType = parts[1]
+			case "timestamp":
+				if parsed, err := strconv.Atoi(parts[1]); err == nil {
+					timestamp = &parsed
+				}
+			case "sender":
+				sender, _ = strconv.Atoi(parts[1])
+			default:
+				data[parts[0]] = parts[1]
+			}
 		}
 	}
-	return ""
+
+	return &Message{
+		Type:      msgType,
+		Timestamp: timestamp,
+		Sender:    sender,
+		Data:      data,
+	}, nil
 }
 
-// Has - retourne true si le champ key est présent dans msg
-func Has(msg, key string) bool {
-	return Get(msg, key) != ""
+// String sérialise le Message en utilisant format spécifié.
+func (m *Message) String() string {
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("%s%stype%s%s", fieldSep, keyValSep, keyValSep, m.Type))
+	if m.Timestamp != nil {
+		builder.WriteString(fmt.Sprintf("%s%stimestamp%s%d", fieldSep, keyValSep, keyValSep, *m.Timestamp))
+	}
+	builder.WriteString(fmt.Sprintf("%s%ssender%s%d", fieldSep, keyValSep, keyValSep, m.Sender))
+
+	for k, v := range m.Data {
+		builder.WriteString(fmt.Sprintf("%s%s%s%s%s", fieldSep, keyValSep, k, keyValSep, v))
+	}
+
+	return builder.String()
 }

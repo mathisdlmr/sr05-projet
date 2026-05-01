@@ -3,7 +3,7 @@
 // Lancement :
 //  ./control -id J1 -sites 5 -n control_J1
 //
-// Infos : 
+// Infos :
 // * Messages entrants sur stdin :
 //   * Sans préfixe    -> viennent de l'application locale
 //   * "BROADCAST:..." -> viennent d'un autre centre de contrôle
@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	id := flag.String("id", "J1", "identifiant de ce site (ex: J1)")
+	id := flag.Int("id", 1, "identifiant de ce site (ex: J1)")
 	nbSites := flag.Int("sites", 5, "nombre total de sites dans le système")
 	name := flag.String("n", "ctrl", "nom du processus (pour les logs)")
 	flag.Parse()

@@ -93,48 +93,6 @@ func (a *App) handleFromBrowser(raw string) {
 		return
 	}
 
-	switch action.Action {
-	case "join":
-		a.io.MustSend(transport.Build("type", "join", "player", a.myID))
-
-	case "ready":
-		a.io.MustSend(transport.Build("type", "ready", "player", a.myID))
-
-	case "vote":
-		if a.state.Phase != PhaseVote {
-			a.log.Warn("handleFromBrowser", "vote ignoré : mauvaise phase ("+string(a.state.Phase)+")")
-			return
-		}
-		a.io.MustSend(transport.Build("type", "vote", "player", a.myID, "target", action.Target))
-
-	case "wolfkill":
-		if a.state.Phase != PhaseNight || a.myRole != RoleWolf {
-			a.log.Warn("handleFromBrowser", "wolfkill ignoré")
-			return
-		}
-		a.io.MustSend(transport.Build("type", "wolfkill", "player", a.myID, "target", action.Target))
-
-	case "witchsave":
-		if a.state.Phase != PhaseWitch || a.myRole != RoleWitch {
-			return
-		}
-		a.io.MustSend(transport.Build("type", "witchsave", "player", a.myID))
-
-	case "witchkill":
-		if a.state.Phase != PhaseWitch || a.myRole != RoleWitch {
-			return
-		}
-		a.io.MustSend(transport.Build("type", "witchkill", "player", a.myID, "target", action.Target))
-
-	case "witchpass":
-		if a.state.Phase != PhaseWitch || a.myRole != RoleWitch {
-			return
-		}
-		a.io.MustSend(transport.Build("type", "witchpass", "player", a.myID))
-
-	default:
-		a.log.Warn("handleFromBrowser", "action inconnue: "+action.Action)
-	}
 }
 
 // ====== Messages venant du controle (/=type=state/=data={...}) ======= //

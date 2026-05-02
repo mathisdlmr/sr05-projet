@@ -117,7 +117,8 @@ func (c *Control) Run() {
 		// Gestion des messages selon le type :
 
 		// 1. Seulement message, venant de l'application
-		if msg.Type == transport.DataMessage {
+		switch msg.Type {
+		case transport.DataMessage {
 			c.log.Info("Run", fmt.Sprintf("message de l'application locale: data=%v", msg.Data))
 			// on set le timestamp et passe le message en mode control
 			c.clock++
@@ -130,7 +131,7 @@ func (c *Control) Run() {
 
 		// 2. Message de contrôle, venant d'un autre centre de contrôle
 		//    -> on doit mettre à jour notre horloge logique et retransmettre le message (sans timestamp)
-		if msg.Type == transport.ControlMessage {
+		case transport.ControlMessage {
 			c.log.Info("Run", fmt.Sprintf("message de contrôle reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
 			// update clock
 			if *msg.Timestamp > c.clock {
@@ -144,7 +145,7 @@ func (c *Control) Run() {
 		}
 
 		// 3. Message de section critique, venant d'un autre centre de contrôle ou de l'application locale
-		if msg.Type == transport.CriticalSection {
+		case transport.CriticalSection {
 			c.log.Info("Run", fmt.Sprintf("message de section critique reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
 			// update clock
 			if msg.Timestamp != nil && *msg.Timestamp > c.clock {
@@ -212,5 +213,6 @@ func (c *Control) Run() {
 		}
 
 		c.log.Warn("Run", fmt.Sprintf("message avec type inconnu: type=%s data=%v", msg.Type, msg.Data))
+	}
 	}
 }

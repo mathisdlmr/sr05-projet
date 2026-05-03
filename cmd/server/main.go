@@ -15,11 +15,12 @@ import (
 func main() {
 	addr := flag.String("addr", "localhost", "adresse d'écoute")
 	port := flag.String("port", "4444", "port HTTP/WS")
+	web := flag.String("web", "./web", "chemin du dossier web statique")
 	name := flag.String("n", "server", "nom du processus (pour les logs)")
 	flag.Parse()
 
 	log := logger.New(*name)
-	srv := server.New(*addr, *port, log)
+	srv := server.New(*addr, *port, *web, log)
 	if err := srv.Run(); err != nil {
 		log.Fatal("main", "erreur serveur: "+err.Error())
 	}

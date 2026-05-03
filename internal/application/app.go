@@ -29,11 +29,12 @@ type App struct {
 	log    *logger.Logger
 	addr   string
 	port   string
+	web    string
 	ws     *websocket.Conn
 	srv    *server.Server
 }
 
-func New(myID string, io *transport.IO, log *logger.Logger, addr string, port string) *App {
+func New(myID string, io *transport.IO, log *logger.Logger, addr string, port string, web string) *App {
 	return &App{
 		myID:   myID,
 		myRole: RoleUnknown,
@@ -42,13 +43,14 @@ func New(myID string, io *transport.IO, log *logger.Logger, addr string, port st
 		log:    log,
 		addr:   addr,
 		port:   port,
+		web:    web,
 	}
 }
 
 func (a *App) Run() {
 	a.log.Info("Run", "démarrage application, joueur="+a.myID)
 
-	a.srv = server.New(a.addr, a.port, a.log)
+	a.srv = server.New(a.addr, a.port, a.web, a.log)
 	//lance l'écoute pour les connexion
 	//upgrade les connextion en web socket
 	// la connection a.srv.ws est set a la dernière websocket ouverte

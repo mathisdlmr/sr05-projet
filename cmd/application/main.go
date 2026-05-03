@@ -21,17 +21,14 @@ import (
 func main() {
 	id := flag.String("id", "J1", "identifiant du joueur local (ex: J1)")
 	name := flag.String("n", "app", "nom du processus (pour les logs)")
+	addr := flag.String("addr", "localhost", "adresse d'écoute")
+	port := flag.String("port", "4444", "port HTTP/WS")
+	web := flag.String("web", "./web", "chemin du dossier web statique")
 	flag.Parse()
 
 	log := logger.New(*name)
 	io := transport.NewIO()
 
-	addr := flag.String("addr", "localhost", "adresse d'écoute")
-	port := flag.String("port", "4444", "port HTTP/WS")
-
-	flag.Parse()
-
-	app := application.New(*id, io, log, *addr, *port)
-
+	app := application.New(*id, io, log, *addr, *port, *web)
 	app.Run()
 }

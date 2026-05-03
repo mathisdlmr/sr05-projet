@@ -20,6 +20,7 @@ import (
 type Server struct {
 	addr string
 	port string
+	web  string
 	log  *logger.Logger
 	ws   *websocket.Conn
 }
@@ -28,17 +29,18 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-func New(addr string, port string, log *logger.Logger) *Server {
+func New(addr string, port string, web string, log *logger.Logger) *Server {
 	return &Server{
 		addr: addr,
 		port: port,
+		web:  web,
 		log:  log,
 	}
 }
 
 func (s *Server) Run() error {
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir("../../web")))
+	mux.Handle("/", http.FileServer(http.Dir(s.web)))
 	mux.HandleFunc("/ws", s.handleWS)
 
 	addr := s.addr + ":" + s.port

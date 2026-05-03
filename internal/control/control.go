@@ -120,34 +120,55 @@ func (c *Control) Run() {
 		switch msg.Type {
 		case transport.DataMessage:
 			c.log.Info("Run", fmt.Sprintf("message de l'application locale: data=%v", msg.Data))
-			// on set le timestamp et passe le message en mode control
+			// Lamport : émission -> incrément
 			c.clock++
-			msg.Timestamp = &c.clock
+			ts := c.clock
+			msg.Sender = c.myID
+			msg.Timestamp = &ts
 			msg.Type = transport.ControlMessage
-			// re-send message on std out
 			c.io.Send(msg.String())
 			continue
 
 		// 2. Message de contrôle, venant d'un autre centre de contrôle
-		//    -> on doit mettre à jour notre horloge logique et retransmettre le message (sans timestamp)
+		//    -> recaler l'horloge et retransmettre tel quel sur l'anneau ;
+		//       si le message nous revient (Sender == myID), on l'ignore.
 		case transport.ControlMessage:
-			c.log.Info("Run", fmt.Sprintf("message de contrôle reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
-			// update clock
-			if *msg.Timestamp > c.clock {
-				c.clock = *msg.Timestamp
-				c.log.Debug("Run", fmt.Sprintf("horloge mise à jour: %d", c.clock))
+			if msg.Timestamp == nil {
+				c.log.Warn("Run", "control_message reçu sans timestamp, ignoré")
+				continue
 			}
-			// re-send message on std out (sans timestamp)
-			msg.Timestamp = nil
+			if msg.Sender == c.myID {
+				c.log.Debug("Run", fmt.Sprintf("control_message propre de retour, ignoré (anneau) timestamp=%d", *msg.Timestamp))
+				continue
+			}
+			c.log.Info("Run", fmt.Sprintf("message de contrôle reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
+			// Recale Lamport : c = max(c, ts) + 1
+			if *msg.Timestamp > c.clock {
+				c.clock = *msg.Timestamp + 1
+			} else {
+				c.clock = c.clock + 1
+			}
+			c.log.Debug("Run", fmt.Sprintf("horloge mise à jour: %d", c.clock))
+			// Forward sur l'anneau (timestamp conservé pour les autres sites)
 			c.io.Send(msg.String())
 			continue
 
 		// 3. Message de section critique, venant d'un autre centre de contrôle ou de l'application locale
+		// TODO : la machine d'état ci-dessous a encore plusieurs bugs (Sender:0 à l'émission,
+		// pas de loop-prevention sur l'anneau). À refaire avec la file d'attente Lamport propre.
 		case transport.CriticalSection:
-			c.log.Info("Run", fmt.Sprintf("message de section critique reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
-			// update clock
-			if msg.Timestamp != nil && *msg.Timestamp > c.clock {
-				c.clock = *msg.Timestamp
+			ts := -1
+			if msg.Timestamp != nil {
+				ts = *msg.Timestamp
+			}
+			c.log.Info("Run", fmt.Sprintf("message de section critique reçu: sender=%d timestamp=%d data=%v", msg.Sender, ts, msg.Data))
+			// Recale Lamport (si timestamp présent) : c = max(c, ts) + 1
+			if msg.Timestamp != nil {
+				if *msg.Timestamp > c.clock {
+					c.clock = *msg.Timestamp + 1
+				} else {
+					c.clock = c.clock + 1
+				}
 				c.log.Debug("Run", fmt.Sprintf("horloge mise à jour: %d", c.clock))
 			}
 			// update queue

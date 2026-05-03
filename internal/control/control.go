@@ -95,7 +95,7 @@ func (c *Control) checkCriticalSection() {
 }
 
 func (c *Control) Run() {
-	c.log.Info("Run", fmt.Sprintf("démarrage controle id=%s nbSites=%d", c.myID, c.nbSites))
+	c.log.Info("Run", fmt.Sprintf("démarrage controle id=%d nbSites=%d", c.myID, c.nbSites))
 	for {
 		line, err := c.io.ReadLine()
 		if err == io.EOF {
@@ -118,7 +118,7 @@ func (c *Control) Run() {
 
 		// 1. Seulement message, venant de l'application
 		switch msg.Type {
-		case transport.DataMessage {
+		case transport.DataMessage:
 			c.log.Info("Run", fmt.Sprintf("message de l'application locale: data=%v", msg.Data))
 			// on set le timestamp et passe le message en mode control
 			c.clock++
@@ -127,11 +127,10 @@ func (c *Control) Run() {
 			// re-send message on std out
 			c.io.Send(msg.String())
 			continue
-		}
 
 		// 2. Message de contrôle, venant d'un autre centre de contrôle
 		//    -> on doit mettre à jour notre horloge logique et retransmettre le message (sans timestamp)
-		case transport.ControlMessage {
+		case transport.ControlMessage:
 			c.log.Info("Run", fmt.Sprintf("message de contrôle reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
 			// update clock
 			if *msg.Timestamp > c.clock {
@@ -142,10 +141,9 @@ func (c *Control) Run() {
 			msg.Timestamp = nil
 			c.io.Send(msg.String())
 			continue
-		}
 
 		// 3. Message de section critique, venant d'un autre centre de contrôle ou de l'application locale
-		case transport.CriticalSection {
+		case transport.CriticalSection:
 			c.log.Info("Run", fmt.Sprintf("message de section critique reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
 			// update clock
 			if msg.Timestamp != nil && *msg.Timestamp > c.clock {
@@ -210,9 +208,9 @@ func (c *Control) Run() {
 				c.log.Warn("Run", fmt.Sprintf("action inconnue dans message de section critique: %s", action))
 			}
 			continue
-		}
 
-		c.log.Warn("Run", fmt.Sprintf("message avec type inconnu: type=%s data=%v", msg.Type, msg.Data))
-	}
+		default:
+			c.log.Warn("Run", fmt.Sprintf("message avec type inconnu: type=%s data=%v", msg.Type, msg.Data))
+		}
 	}
 }

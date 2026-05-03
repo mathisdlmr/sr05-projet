@@ -1,17 +1,17 @@
-// Package server - Gère le serveur HTTP et la connexion WebSocket avec le navigateur
+// Package server - Gère le serveur HTTP et la connexion WebSocket avec le navigateur.
 //
-// Infos :
-// * Pipeline de communication avec les autres processus :
-//   * Navigateur --WS--> server --stdout--> application
-//   * application --stdin--> server --WS--> Navigateur
+// Le serveur sert deux directions :
+//   - Navigateur -> application : les messages reçus sur la WebSocket sont
+//     publiés sur le channel renvoyé par Inbox(). C'est l'application qui
+//     les consomme et décide quoi en faire.
+//   - Application -> navigateur : l'application appelle Send() pour pousser
+//     un message texte sur la WebSocket courante (en pratique une chaîne JSON).
 
 package server
 
 import (
-	"bufio"
-	"fmt"
 	"net/http"
-	"os"
+	"sync"
 
 	"github.com/gorilla/websocket"
 	"github.com/sr05-projet/pkg/logger"
@@ -22,7 +22,10 @@ type Server struct {
 	port string
 	web  string
 	log  *logger.Logger
-	ws   *websocket.Conn
+
+	mu    sync.Mutex
+	ws    *websocket.Conn
+	inbox chan string
 }
 
 var upgrader = websocket.Upgrader{
@@ -31,11 +34,33 @@ var upgrader = websocket.Upgrader{
 
 func New(addr string, port string, web string, log *logger.Logger) *Server {
 	return &Server{
-		addr: addr,
-		port: port,
-		web:  web,
-		log:  log,
+		addr:  addr,
+		port:  port,
+		web:   web,
+		log:   log,
+		inbox: make(chan string, 16),
 	}
+}
+
+// Inbox - canal des messages reçus du navigateur (lecture seule pour l'app).
+func (s *Server) Inbox() <-chan string { return s.inbox }
+
+// Send - écrit un message texte sur la WebSocket connectée.
+// Si aucun navigateur n'est connecté, on log un warn et on droppe.
+func (s *Server) Send(msg string) error {
+	s.mu.Lock()
+	ws := s.ws
+	s.mu.Unlock()
+
+	if ws == nil {
+		s.log.Warn("Send", "pas de WebSocket ouverte, message perdu : "+msg)
+		return nil
+	}
+	if err := ws.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
+		s.log.Error("Send", "erreur d'envoi: "+err.Error())
+		return err
+	}
+	return nil
 }
 
 func (s *Server) Run() error {
@@ -48,8 +73,8 @@ func (s *Server) Run() error {
 	return http.ListenAndServe(addr, mux)
 }
 
-// handleWS - handler HTTP qui upgrade la connexion en WebSocket,
-// puis lit en boucle les messages du navigateur et les écrit sur stdout
+// handleWS - upgrade HTTP -> WebSocket puis lit en boucle les messages
+// du navigateur et les pousse sur le channel inbox pour l'application.
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	cnx, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -57,48 +82,22 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.mu.Lock()
 	s.ws = cnx
+	s.mu.Unlock()
 	s.log.Info("handleWS", "WebSocket ouverte depuis "+r.RemoteAddr)
 
 	for {
 		_, msg, err := cnx.ReadMessage()
 		if err != nil {
 			s.log.Warn("handleWS", "WebSocket fermée: "+err.Error())
+			s.mu.Lock()
 			s.ws = nil
+			s.mu.Unlock()
 			return
 		}
 		line := string(msg)
 		s.log.Debug("handleWS", "nav->app : "+line)
-		fmt.Println(line)
-	}
-}
-
-// readStdinLoop - lit stdin en continu et pousse chaque ligne vers la WebSocket
-//
-// TODO : pour l'instant ici on envoie les messages avec un format un peu moche ici...
-// Grosso modo les messages sont justes forwardés, donc on a le même format qu'entre l'application et le centre de controle
-// Ca serait cool à terme de parser ça en JSON pour que la communication entre server <-> navigateur soit en JSON
-func (s *Server) readStdinLoop() {
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" {
-			continue
-		}
-		s.log.Debug("readStdinLoop", "app->nav : "+line)
-		s.wsSend(line)
-	}
-}
-
-// wsSend - envoie un message texte vers le navigateur connecté sur notre WebSocket
-func (s *Server) wsSend(msg string) {
-	ws := s.ws
-	if ws == nil {
-		s.log.Warn("wsSend", "pas de WebSocket ouverte, message perdu : "+msg)
-		return
-	}
-
-	if err := ws.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
-		s.log.Error("wsSend", "erreur d'envoi: "+err.Error())
+		s.inbox <- line
 	}
 }

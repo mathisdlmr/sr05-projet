@@ -71,7 +71,7 @@ func (a *App) Run() {
 		if strings.HasPrefix(line, "{") {
 			a.handleFromBrowser(line)
 		} else {
-			a.handleFromControl(line)
+			// a.handleFromControl(line)
 		}
 	}
 
@@ -93,51 +93,4 @@ func (a *App) handleFromBrowser(raw string) {
 		return
 	}
 
-}
-
-// ====== Messages venant du controle (/=type=state/=data={...}) ======= //
-
-func (a *App) handleFromControl(raw string) {
-	a.log.Debug("ctrl->browser", raw)
-
-	msgType := transport.Get(raw, "type")
-
-	switch msgType {
-	case "state":
-		data := transport.Get(raw, "data")
-		var newState GameState
-		if err := json.Unmarshal([]byte(data), &newState); err != nil {
-			a.log.Error("handleFromControl", "unmarshal state: "+err.Error())
-			return
-		}
-		a.state = newState
-
-		if p, ok := a.state.Players[a.myID]; ok {
-			a.myRole = p.Role
-		}
-
-		a.sendStateToBrowser()
-
-	case "error":
-		msg := transport.Get(raw, "msg")
-		a.io.MustSend(transport.Build("type", "error", "msg", msg))
-
-	default:
-		a.log.Warn("handleFromControl", "type inconnu: "+msgType)
-	}
-}
-
-// sendStateToBrowser - construit la vue filtrée, la sérialise en JSON et l'envoie au server (stdout)
-func (a *App) sendStateToBrowser() {
-	view := BuildView(a.state, a.myID, a.myRole)
-
-	data, err := json.Marshal(view)
-	if err != nil {
-		a.log.Error("sendStateToBrowser", "marshal: "+err.Error())
-		return
-	}
-
-	msg := transport.Build("type", "state", "data", string(data))
-	a.log.Debug("sendStateToBrowser", msg)
-	a.io.MustSend(msg)
 }

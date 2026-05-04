@@ -64,41 +64,43 @@ Le projet porte sur la création d'une application répartie respectant les cont
 
 ## Organisation du projet
 
-Pour info : j'ai commencé à créer des fichiers un peu au piff histoire de pouvoir push les dossiers, mais c'est à revoir
-
 ```bash
-* cmd/
-  * application/
-    * main.go       # Lance l'application (créé un logger, un io, et on lance internal/application)
-  * control/
-    * main.go       # Lance le contrôle (créé un logger, un io, et on lance internal/control)
-  * server/
-    * main.go       # Lance le serveur (créé un logger, un io, et on lance internal/server)
-* internal/
-  * application/
-    * app.go        # Contient la logique principale de l'application
-    * filter.go     # Forme un filtre sur ce que l'on souhaite forward ou non au server (ce que le joueur a le droit de voir ou pas)
-    * state.go      # Contient les structures de données représentant l'état du jeu côté application
-  * control/
-    * control.go    # Contient la logique principale du centre de contrôle
-    * state.go      # Contient les structures de données représentant l'état du jeu côté centre de contrôle
-    * <horloge.go, snapshot.go...> Enfin bref ce qui est demandé pour le projet
-  * server/
-    * server.go     # Gère le serveur (pour communiquer via ws avec un navigateur)
-* pkg/
-  * logger/
-    * logger.go     # Logger mis en forme (couleur, nom des processus, PID, etc.)
-  * transport/
-    * io.go         # Gère la lecture sur stdin et écriture sur stdout
-    * messages.go   # Gère la construction et lectures des messages envoyés/reçus
-* web/
-  * index.html
-  * ...
-* scripts/
-  * 4-ring.sh
-  * 5-mesh.sh
-  * 7-ring_with_ctl.sh
-  * ...
+├── 0-old
+│   └── ... # Contient les différentes étapes de l'activité "Projet" sur Moodle
+├── cmd
+│   ├── application
+│   │   └── main.go # Lance l'application (internal/application/app.go) ainsi que le server (internal/server/server.go) qui maintient la websocket avec le frontend
+│   └── control
+│       └── main.go # Lance le centre de contrôle (internal/control/control.go) qui communique dans notre système réparti 
+├── docs
+│   └── ... # Contient les images utilisées par le README
+├── internal
+│   ├── application
+│   │   ├── app.go # Contient la logique principale de l'application
+│   │   ├── filter.go # Forme un filtre sur ce que l'on souhaite forward ou non au server (ce que le joueur a le droit de voir ou pas)
+│   │   └── state.go # Contient les structures de données représentant l'état du jeu côté application
+│   ├── control
+│   │   ├── control.go # Contient la logique principale du centre de contrôle
+│   │   └── state.go # Contient les structures de données représentant l'état du jeu côté centre de contrôle
+│   └── server
+│       └── server.go # Gère le serveur (pour communiquer via ws avec un navigateur)
+├── pkg
+│   ├── logger
+│   │   └── logger.go # Logger mis en forme (couleur, nom des processus, PID, etc.)
+│   └── transport
+│       ├── io.go # Gère la lecture sur stdin et écriture sur stdout
+│       └── message.go # Gère la construction et lectures des messages envoyés/reçus
+├── web # Fichiers web utilisés par le frontend
+│   ├── index.html
+│   └── style.css
+├── scripts
+│   └── local.sh # Script permettant de préparer le réseau sur lequel tourne notre système réparti
+├── go.mod
+├── go.sum
+├── Makefile
+├── README.md
+└── TODO
+
 ```
 
 ## Modélisation d'un état du jeu
@@ -129,11 +131,8 @@ GameState{
 ## Communication entre les processus
 
 ```
-Navigateur ---- JSON ----> Server
-Server     --- "/=type=state/=data={}" ---> Navigateur # TODO : c'est à revoir ça
-
-Server ---- Transparent ----> Application
-Application ---- Transparent ----> Server
+Navigateur ---- JSON ----> Application
+Application     --- "/=type=state/=data={}" ---> Navigateur # TODO : c'est à revoir ça
 
 Application --- "/=type=.../=..." ---> Control
 Control --- "/=type=state/=data={}" ---> Application
@@ -166,17 +165,15 @@ Control --- "BROADCAST:/=from=.../" ---> [réseau] -> autres Controls # Le from 
 { "action": "witchpass" }
 ```
 
-### Serveur -> Navigateur
+### Application -> Navigateur
 
-On forward tout de l'application de manière bête et méchante
-
-Soit un état complet du jeu : `/=type=state/=data={"phase":"VOTE","players":{...},"votes":{...},"myId":"J3"}`
-
-Soit une erreur : `/=type=error/=msg=action interdite pendant cette phase`
+On forward tout de l'application en encapsulant le JSON de l'état du jeu dans un champ "data" avec notre format de message. Les deux cas possibles sont
+* Soit un état complet du jeu : `/=type=state/=data={"phase":"VOTE","players":{...},"votes":{...},"myId":"J3"}`
+* Soit une erreur : `/=type=error/=msg=action interdite pendant cette phase`
 
 ### Application -> Control
 
-Même format que Navigateur -> Serveur mais au format imposé dans l'énoncé (comme `/=type=join/=player=J3` par exemple)
+Même format que Navigateur -> Application mais au format imposé dans l'énoncé (comme `/=type=join/=player=J3` par exemple)
 
 ### Control -> Control
 

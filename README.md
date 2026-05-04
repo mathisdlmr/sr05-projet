@@ -69,9 +69,11 @@ Le projet porte sur la création d'une application répartie respectant les cont
 │   └── ... # Contient les différentes étapes de l'activité "Projet" sur Moodle
 ├── cmd
 │   ├── application
-│   │   └── main.go # Lance l'application (internal/application/app.go) ainsi que le server (internal/server/server.go) qui maintient la websocket avec le frontend
-│   └── control
-│       └── main.go # Lance le centre de contrôle (internal/control/control.go) qui communique dans notre système réparti 
+│   │   └── main.go # Lance l'application (internal/application/app.go) qui embarque le server (internal/server/server.go) maintenant la WebSocket avec le frontend
+│   ├── control
+│   │   └── main.go # Lance le centre de contrôle (internal/control/control.go) qui communique dans notre système réparti
+│   └── server
+│       └── main.go # Lance uniquement le server WebSocket (binaire autonome de debug, non utilisé par scripts/local.sh)
 ├── docs
 │   └── ... # Contient les images utilisées par le README
 ├── internal
@@ -109,7 +111,7 @@ Le projet porte sur la création d'une application répartie respectant les cont
 GameState{
     Phase: "VOTE", // "LOBBY" | "NIGHT" | "WITCH" | "VOTE" | "END"
     Players: {
-        "J1": { ID: "J1", Role: "WOLF", Alive: false }, // TODO : sûrement une section IP+port à ajouter ici par la suite
+        "J1": { ID: "J1", Role: "WOLF", Alive: false },
         "J2": { ID: "J2", Role: "WOLF", Alive: true  },
         "J3": { ID: "J3", Role: "WITCH", Alive: true  },
         "J4": { ID: "J4", Role: "VILLAGER", Alive: true  },
@@ -130,17 +132,52 @@ GameState{
 
 ## Communication entre les processus
 
+### Routage physique (cf. `scripts/local.sh`)
+
+Le routage entre processus se fait via des FIFO Unix mises en place par le script de lancement :
+
 ```
-Navigateur ---- JSON ----> Application
-Application     --- "/=type=state/=data={}" ---> Navigateur # TODO : c'est à revoir ça
-
-Application --- "/=type=.../=..." ---> Control
-Control --- "/=type=state/=data={}" ---> Application
-
-Control --- "BROADCAST:/=from=.../" ---> [réseau] -> autres Controls # Le from ici permet d'éviter de lire son broadcast
+out_app_i  ->  in_ctl_i                       (app -> contrôle local)
+out_ctl_i  ->  in_app_i  +  in_ctl_{i+1}      (contrôle -> app locale + suivant sur l'anneau)
 ```
 
-### Actions Navigateur -> Serveur
+Le `tee` qui duplique `out_ctl_i` envoie donc chaque sortie de contrôle à la fois à l'application locale et au contrôle suivant. C'est le **type** du message qui détermine ce que le récepteur en fait.
+
+### Format des messages stdin/stdout
+
+Tous les messages échangés entre `application` et `control` (et entre contrôles) suivent le format défini dans `pkg/transport/message.go` :
+
+```
+/=type=<type>/=sender=<id>/=timestamp=<n>/=cle1=val1/=cle2=val2/...
+```
+
+Les types reconnus sont :
+
+| Type              | Émetteur                  | Timestamp | Sens                                        |
+| ----------------- | ------------------------- | :-------: | ------------------------------------------- |
+| `data_message`    | application locale        |    non    | application -> contrôle local               |
+| `control_message` | contrôle (estampille)     |    oui    | contrôle -> anneau (transitant par l'app)   |
+| `critical_section`| contrôle / app locale     |  parfois  | gestion de la file d'attente Lamport        |
+
+L'évitement de boucle sur l'anneau se fait en comparant `sender` à l'ID local du contrôle (cf. `internal/control/control.go`).
+
+### Application -> Control
+
+L'application formatte l'action JSON reçue du navigateur en champs clé/valeur dans un `data_message` :
+
+```
+/=type=data_message/=sender=3/=action=vote/=target=J2
+```
+
+### Control -> Control (et Control -> Application sur l'anneau)
+
+Le contrôle estampille (Lamport) puis émet un `control_message`. Le `tee` du script l'envoie à la fois à l'app locale (qui le poussera au navigateur) et au contrôle suivant :
+
+```
+/=type=control_message/=sender=3/=timestamp=17/=action=vote/=target=J2
+```
+
+### Actions Navigateur -> Application (via WebSocket, JSON)
 
 ```json
 // Rejoindre le lobby
@@ -165,16 +202,17 @@ Control --- "BROADCAST:/=from=.../" ---> [réseau] -> autres Controls # Le from 
 { "action": "witchpass" }
 ```
 
-### Application -> Navigateur
+### Application -> Navigateur (via WebSocket, JSON)
 
-On forward tout de l'application en encapsulant le JSON de l'état du jeu dans un champ "data" avec notre format de message. Les deux cas possibles sont
-* Soit un état complet du jeu : `/=type=state/=data={"phase":"VOTE","players":{...},"votes":{...},"myId":"J3"}`
-* Soit une erreur : `/=type=error/=msg=action interdite pendant cette phase`
+L'application pousse au navigateur un événement JSON sérialisant le `control_message` reçu :
 
-### Application -> Control
+```json
+{
+  "type": "event",
+  "from": 3,
+  "timestamp": 17,
+  "data": { "action": "vote", "target": "J2" }
+}
+```
 
-Même format que Navigateur -> Application mais au format imposé dans l'énoncé (comme `/=type=join/=player=J3` par exemple)
-
-### Control -> Control
-
-Même format que Application -> Control, mais on ajoute "BROADCAST:/=from=J<id_joueur>/=type=..."
+À ce stade, l'envoi d'un état complet du jeu (`type: "state"`) ou d'une erreur (`type: "error"`) n'est pas encore implémenté côté `internal/application/app.go`.

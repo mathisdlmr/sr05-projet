@@ -1,7 +1,15 @@
-- File d'attente répartie : corriger la machine d'état (cf. control.go:157)
-- Horloges vectorielles
-- Sauvegarde répartie datée (algorithme d'instantanés)
-- Brancher filter.go (BuildView) avant push au navigateur
-- UI web métier (boutons selon phase/rôle, plus que le champ texte actuel)
-- Réseau IP (sortir des FIFOs de local.sh, cf. nc / tunnel ssh)
-- Rendu : archive tgz + README + slides PDF
+- Ajoiuter à la section critique la synchronisation des états - Eliott
+
+- Horloges vectorielles - Eliott
+
+- Brancher le navigateur à l'application (actions du navigateur envoyées à l'application à traiter, et inversement) - Elias
+
+- UI pour jouer - Mathis
+
+- Sauvegarde répartie datée (algorithme 11 d'instantanés) - Eric
+
+- Débug
+
+- Rendu : archive tgz + README + slides PDF -
+
+- Réseau IP (sortir des FIFOs de local.sh, cf. nc / tunnel ssh) - Mathis

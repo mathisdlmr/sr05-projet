@@ -10,6 +10,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"sync"
 
@@ -99,5 +100,21 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		line := string(msg)
 		s.log.Debug("handleWS", "nav->app : "+line)
 		s.inbox <- line
+	}
+}
+
+type BrowserMessage struct {
+	Action string            `json:"action"`
+	Data   map[string]string `json:"data"`
+}
+
+func (s *Server) PushMessageToBrowser(msg BrowserMessage) {
+	out, err := json.Marshal(msg)
+	if err != nil {
+		s.log.Error("pushMessageToBrowser", "marshal: "+err.Error())
+		return
+	}
+	if err := s.Send(string(out)); err != nil {
+		s.log.Warn("pushMessageToBrowser", "send: "+err.Error())
 	}
 }

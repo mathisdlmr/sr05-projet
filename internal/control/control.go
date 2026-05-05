@@ -1,17 +1,5 @@
 // Gère les informations de controle dans les messages, et la logique de section critique
 
-// 3 Types de messages :
-// * Messages de données : envoyés par l'application locale, avec type "data_message".
-// 	Ils sont transformés en messages de contrôle (type "control_message") avec un timestamp et retransmis à tous les centres de contrôle.
-// * Messages de contrôle : envoyés par les centres de contrôle, avec type "control_message".
-// 	Ils contiennent un timestamp et sont retransmis à tous les centres de contrôle (sans le timestamp).
-// * Messages de section critique : envoyés par les centres de contrôle, avec type "critical_section".
-// 	Ils contiennent un timestamp et une action (request, acknowledge, release) et sont traités localement pour gérer la file d'attente de la section critique.
-
-// Les messages sans timestamp seront reconnus et traités par l'application locale,
-// les autres seront envoyés aux autres
-// l'entrée en section critique est reconnu par l'application locale grâce à un message de type "critical_section" avec action "enter".
-
 package control
 
 import (
@@ -24,14 +12,16 @@ import (
 )
 
 // enum : status en file d'attente
+type queueStatus int
+
 const (
-	Request     = 1
-	Acknowledge = 2
-	Release     = 3
+	statusRequest queueStatus = iota + 1
+	statusAcknowledge
+	statusRelease
 )
 
 type queueEntry struct {
-	Status    int
+	Status    queueStatus
 	Timestamp int
 }
 
@@ -53,7 +43,7 @@ func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
 	queue := make([]queueEntry, nbSites)
 	for i := 0; i < nbSites; i++ {
 		queue[i] = queueEntry{
-			Status:    Release,
+			Status:    statusRelease,
 			Timestamp: 0,
 		}
 	}
@@ -71,11 +61,12 @@ func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
 // Méthode pour vérifier si on peut entrer en SC
 // si queue[myID] == request et que tous les autres ont une estampille plus grande
 func (c *Control) checkCriticalSection() {
-	if c.queue[c.myID].Status == Request {
-		for i := 0; i < c.nbSites; i++ {
-			if i != c.myID && c.queue[i].Status == Request && c.queue[i].Timestamp < c.queue[c.myID].Timestamp {
-				return
-			}
+	if c.queue[c.myID].Status != statusRequest {
+		return
+	}
+	for i := 0; i < c.nbSites; i++ {
+		if i != c.myID && c.queue[i].Status == statusRequest && c.queue[i].Timestamp < c.queue[c.myID].Timestamp {
+			return
 		}
 	}
 	c.log.Info("checkCriticalSection", "entrée en section critique")
@@ -96,7 +87,8 @@ func (c *Control) localStartCriticalSection() {
 // 3. envoie le message
 func (c *Control) sendMessage(m transport.Message) {
 	c.clock++
-	m.Timestamp = &c.clock
+	ts := c.clock
+	m.Timestamp = &ts
 	m.Sender = c.myID
 	c.io.Send(m.String())
 }
@@ -131,117 +123,127 @@ func (c *Control) Run() {
 		}
 
 		// Gestion des messages selon le type :
-
-		// 1. Seulement message, venant de l'application
 		switch msg.Type {
-		case transport.Application:
-			c.log.Info("Run", fmt.Sprintf("message de l'application locale: data=%v", msg.Data))
-
-			if msg.Action == "request_cs" { // application request la section critique
-				// envoie msg de request : augmente aussi la clock
-				c.sendMessage(transport.Message{
-					Type:   transport.Control,
-					Action: "request_cs",
-					// empty data
-				})
-				// stock l'état correspondant
-				c.queue[c.myID] = queueEntry{
-					Status:    Request,
-					Timestamp: c.clock,
-				}
-			}
-
-			if msg.Action == "end_cs" { // application libère la section critique
-				// envoie msg de release : augmente aussi la clock
-				c.sendMessage(transport.Message{
-					Type:   transport.Control,
-					Action: "release_cs",
-					// ici on transmet la data pour synchroniser l'état
-					Data: msg.Data,
-				})
-				// stock l'état correspondant
-				c.queue[c.myID] = queueEntry{
-					Status:    Release,
-					Timestamp: c.clock,
-				}
-			}
-			continue
-
-		// 2. Message de contrôle, venant d'un autre centre de contrôle
-		//    -> recaler l'horloge et retransmettre tel quel sur l'anneau ;
-		//       si le message nous revient (Sender == myID), on l'ignore.
-		case transport.Control:
-			if msg.Timestamp == nil {
-				c.log.Warn("Run", "control_message reçu sans timestamp, ignoré")
-				continue
-			}
-			if msg.Sender == c.myID {
-				c.log.Debug("Run", fmt.Sprintf("control_message propre de retour, ignoré (anneau) timestamp=%d", *msg.Timestamp))
-				continue
-			}
-			c.log.Info("Run", fmt.Sprintf("message de contrôle reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
-
-			// Recale Lamport : c = max(c, ts) + 1
-			c.updateClock(msg)
-
-			switch msg.Action {
-			case "request_cs":
-				c.queue[msg.Sender] = queueEntry{
-					Status:    Request,
-					Timestamp: *msg.Timestamp,
-				}
-				// envoyer un message d'acquittement à senderID
-				ackMsg := transport.Message{
-					Type:   transport.Control,
-					Action: "acknowledge",
-					// on indique le destinataire dans data
-					Data: map[string]string{
-						"target": fmt.Sprintf("%d", msg.Sender),
-					},
-				}
-				c.io.Send(ackMsg.String())
-				c.log.Info("Run", fmt.Sprintf("envoi d'un message d'acquittement à %d", msg.Sender))
-				c.checkCriticalSection()
-
-			case "acknowledge_cs":
-				// vérifie que le message d'acquittement nous est bien destiné
-				targetStr, ok := msg.Data["target"]
-				if !ok {
-					c.log.Warn("Run", "message d'acquittement reçu sans target, ignoré")
-					continue
-				}
-				target, err := strconv.Atoi(targetStr)
-				if err != nil {
-					c.log.Warn("Run", fmt.Sprintf("message d'acquittement reçu avec target non entier: %s, ignoré", targetStr))
-					continue
-				}
-				if target != c.myID {
-					c.log.Debug("Run", fmt.Sprintf("message d'acquittement reçu pour %d, pas pour nous (%d), ignoré", target, c.myID))
-					continue
-				}
-				c.queue[msg.Sender] = queueEntry{
-					Status:    Acknowledge,
-					Timestamp: *msg.Timestamp,
-				}
-				c.checkCriticalSection()
-
-			case "release_cs":
-				c.queue[msg.Sender] = queueEntry{
-					Status:    Release,
-					Timestamp: *msg.Timestamp,
-				}
-				c.checkCriticalSection()
-
-			default:
-				c.log.Warn("Run", fmt.Sprintf("action inconnue dans message de contrôle: %s", msg.Action))
-			}
-
-			// Forward sur l'anneau (timestamp conservé pour les autres sites)
-			c.io.Send(msg.String())
-			continue
-
+		case transport.Application: // message de l'application locale
+			c.handleApplicationMessage(msg)
+		case transport.Control: // message de contrôle d'un autre site
+			c.handleControlMessage(msg)
 		default:
 			c.log.Warn("Run", fmt.Sprintf("message avec type inconnu: type=%s data=%v", msg.Type, msg.Data))
 		}
 	}
+}
+
+func (c *Control) handleApplicationMessage(msg *transport.Message) {
+	c.log.Info("Run", fmt.Sprintf("message de l'application locale: data=%v", msg.Data))
+
+	if msg.Action == "request_cs" { // application request la section critique
+		// envoie msg de request : augmente aussi la clock
+		c.sendMessage(transport.Message{
+			Type:   transport.Control,
+			Action: "request_cs",
+			// empty data
+		})
+		// stock l'état correspondant
+		c.queue[c.myID] = queueEntry{
+			Status:    statusRequest,
+			Timestamp: c.clock,
+		}
+	}
+
+	if msg.Action == "end_cs" { // application libère la section critique
+		// envoie msg de release : augmente aussi la clock
+		c.sendMessage(transport.Message{
+			Type:   transport.Control,
+			Action: "release_cs",
+			// ici on transmet la data pour synchroniser l'état
+			Data: msg.Data,
+		})
+		// stock l'état correspondant
+		c.queue[c.myID] = queueEntry{
+			Status:    statusRelease,
+			Timestamp: c.clock,
+		}
+	}
+}
+
+func (c *Control) handleControlMessage(msg *transport.Message) {
+	if msg.Timestamp == nil {
+		c.log.Warn("Run", "control_message reçu sans timestamp, ignoré")
+		return
+	}
+	if msg.Sender == c.myID {
+		c.log.Debug("Run", fmt.Sprintf("control_message propre de retour, ignoré (anneau) timestamp=%d", *msg.Timestamp))
+		return
+	}
+	c.log.Info("Run", fmt.Sprintf("message de contrôle reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
+
+	// Recale Lamport : c = max(c, ts) + 1
+	c.updateClock(msg)
+
+	switch msg.Action {
+	case "request_cs":
+		c.handleRequestCS(msg)
+	case "acknowledge_cs":
+		c.handleAcknowledgeCS(msg)
+	case "release_cs":
+		c.handleReleaseCS(msg)
+	default:
+		c.log.Warn("Run", fmt.Sprintf("action inconnue dans message de contrôle: %s", msg.Action))
+	}
+
+	// Forward sur l'anneau (timestamp conservé pour les autres sites)
+	c.io.Send(msg.String())
+}
+
+// --- Handlers pour les messages de file d'attente répartie ---
+
+func (c *Control) handleRequestCS(msg *transport.Message) {
+	c.queue[msg.Sender] = queueEntry{
+		Status:    statusRequest,
+		Timestamp: *msg.Timestamp,
+	}
+	// envoyer un message d'acquittement à senderID
+	ackMsg := transport.Message{
+		Type:   transport.Control,
+		Action: "acknowledge_cs",
+		// on indique le destinataire dans data
+		Data: map[string]string{
+			"target": fmt.Sprintf("%d", msg.Sender),
+		},
+	}
+	c.io.Send(ackMsg.String())
+	c.log.Info("Run", fmt.Sprintf("envoi d'un message d'acquittement à %d", msg.Sender))
+	c.checkCriticalSection()
+}
+
+func (c *Control) handleAcknowledgeCS(msg *transport.Message) {
+	// vérifie que le message d'acquittement nous est bien destiné
+	targetStr, ok := msg.Data["target"]
+	if !ok {
+		c.log.Warn("Run", "message d'acquittement reçu sans target, ignoré")
+		return
+	}
+	target, err := strconv.Atoi(targetStr)
+	if err != nil {
+		c.log.Warn("Run", fmt.Sprintf("message d'acquittement reçu avec target non entier: %s, ignoré", targetStr))
+		return
+	}
+	if target != c.myID {
+		c.log.Debug("Run", fmt.Sprintf("message d'acquittement reçu pour %d, pas pour nous (%d), ignoré", target, c.myID))
+		return
+	}
+	c.queue[msg.Sender] = queueEntry{
+		Status:    statusAcknowledge,
+		Timestamp: *msg.Timestamp,
+	}
+	c.checkCriticalSection()
+}
+
+func (c *Control) handleReleaseCS(msg *transport.Message) {
+	c.queue[msg.Sender] = queueEntry{
+		Status:    statusRelease,
+		Timestamp: *msg.Timestamp,
+	}
+	c.checkCriticalSection()
 }

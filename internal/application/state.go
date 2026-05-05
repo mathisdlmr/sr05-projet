@@ -20,6 +20,7 @@ const (
 	RoleVillager Role = "VILLAGER"
 	RoleWitch    Role = "WITCH"
 	RoleUnknown  Role = "?"
+	RoleAny      Role = "*"
 )
 
 type Player struct {
@@ -31,7 +32,7 @@ type Player struct {
 type GameState struct {
 	Phase     Phase             `json:"phase"`
 	Players   map[string]Player `json:"players"`
-	Votes     map[string]string `json:"votes"`     // votant : cible
+	Votes     map[Player]string `json:"votes"` // votant : cible
 	KillWolf  string            `json:"killWolf"`
 	KillWitch string            `json:"killWitch"`
 	Winner    string            `json:"winner"`    // "" | "WOLVES" | "VILLAGERS"
@@ -42,7 +43,7 @@ func NewGameState(myID string) GameState {
 	return GameState{
 		Phase:   PhaseLobby,
 		Players: make(map[string]Player),
-		Votes:   make(map[string]string),
+		Votes:   make(map[Player]string),
 		MyID:    myID,
 	}
 }

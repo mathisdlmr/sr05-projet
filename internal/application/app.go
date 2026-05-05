@@ -109,37 +109,140 @@ func (a *App) handleFromControl(line string) {
 		return
 	}
 
-	switch msg.Type {
-	case transport.ControlMessage:
+	if msg.Type != transport.Application {
+		return
+	}
+
+	switch msg.Action {
+	case transport.ActionEndCS:
 		// Message applicatif estampillé qui circule entre les sites :
-		// on le pousse au navigateur pour visualisation.
-		a.pushEventToBrowser(msg)
+		// Ce sera toujours un vote
+	case transport.ActionBeginCS:
+		// 	Transmettre a la routine qui veut commencer une critical section
 	default:
 		// Tout le reste (CriticalSection, types inconnus) ne concerne pas l'app.
-		a.log.Debug("handleFromControl", "type ignoré: "+msg.Type)
+		a.log.Debug("handleFromControl", "type ignoré: "+msg.Type) // ne devrait pas arriver
 	}
 }
 
-// pushEventToBrowser - sérialise un événement en JSON et le pousse via la WS.
-func (a *App) pushEventToBrowser(msg *transport.Message) {
-	payload := struct {
-		Type      string            `json:"type"`
-		From      int               `json:"from"`
-		Timestamp *int              `json:"timestamp,omitempty"`
-		Data      map[string]string `json:"data"`
-	}{
-		Type:      "event",
-		From:      msg.Sender,
-		Timestamp: msg.Timestamp,
-		Data:      msg.Data,
+func (a *App) computeVoteResults() Player {
+	scores := map[string]int{}
+
+	for _, target := range a.state.Votes {
+		if _, ok := scores[target]; ok {
+			scores[target] += 1
+		} else {
+			scores[target] = 1
+		}
 	}
-	out, err := json.Marshal(payload)
-	if err != nil {
-		a.log.Error("pushEventToBrowser", "marshal: "+err.Error())
-		return
+
+	max_value := 0
+	max_key := ""
+	for key, value := range scores {
+		// Cas d'égalité possible, à régler
+		if value > max_value {
+			max_value = value
+			max_key = key
+		}
 	}
-	if err := a.srv.Send(string(out)); err != nil {
-		a.log.Warn("pushEventToBrowser", "send: "+err.Error())
+
+	return a.state.Players[max_key]
+}
+
+
+func (a *App) handleVote(voterID string, targetID string) {
+	a.state.Votes[a.state.Players[voterID]] = targetID
+	if a.checkAllVotesCompleted() {
+		//Compute résultats
+		//Choisir phase suivante
+		//Compute phase suivante
+		//Passer phase suivante
+
+	} else {
+		//send vote to browser comme ça il peut l'afficher
+		a.srv.PushMessageToBrowser(
+			server.BrowserMessage{
+				Action: "vote",
+				Data: map[string]string{
+					"voter":  voterID,
+					"target": targetID,
+				}})
+	}
+}
+
+func (a *App) getNextPhase() Phase {
+	switch a.state.Phase {
+	case PhaseLobby:
+		return PhaseNight
+	case PhaseNight:
+		return PhaseWitch
+	case PhaseWitch:
+		return PhaseVote
+	default:
+		return PhaseNight
+	}
+
+}
+
+// Suppose qu'un player ne "meurt" réellement qu'a la fin du vote du village ou a la fin du tour de la sorcière.
+// En attendant les morts sont stockés dans les kills
+func (a *App) checkEndOfGame() bool {
+	allWolvesDead := true
+
+	for _, player := range a.state.Players {
+		if player.Alive && (player.Role == RoleWolf) {
+			allWolvesDead = false
+			break
+		}
+	}
+
+	if allWolvesDead {
+		return true
+	}
+
+	nbWolves := 0
+	nbVillagers := 0
+	for _, player := range a.state.Players {
+		if player.Role == RoleWolf {
+			nbWolves += 1
+		} else {
+			nbVillagers += 1
+		}
+	}
+
+	if nbWolves >= nbVillagers {
+		return true
+	}
+
+	return false
+}
+
+func (a *App) checkAllVotesCompleted() bool {
+	for _, vote := range a.state.Votes {
+		if vote != "" {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *App) createStartingVoteMap() {
+	var votersrole Role
+	switch a.state.Phase {
+	case PhaseNight:
+		votersrole = RoleWolf
+	case PhaseVote:
+		votersrole = RoleAny
+	case PhaseWitch:
+		votersrole = RoleWitch
+	}
+
+	a.state.Votes = make(map[Player]string)
+
+	for _, player := range a.state.Players {
+		if (player.Role == votersrole) || (votersrole == RoleAny) {
+			a.state.Votes[player] = ""
+		}
 	}
 }
 

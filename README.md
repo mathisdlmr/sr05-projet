@@ -161,21 +161,17 @@ Les types reconnus sont :
 
 L'évitement de boucle sur l'anneau se fait en comparant `sender` à l'ID local du contrôle (cf. `internal/control/control.go`).
 
-### Application -> Control
+### Transmission des données
 
-L'application formatte l'action JSON reçue du navigateur en champs clé/valeur dans un `data_message` :
+Les nœuds répartis ne se transmettent pas de message concernant le jeu (des messages de données). Il pourrait y en avoir pour des messages de chat par exemple. Pour le moment, les seules phases qui requièrent des communications sont les phases de vote. Pour se faire, les noeuds utilisent la file d'attente répartie pour garantir qu'un seul vote ne soit enregistré à la fois. 
 
-```
-/=type=data_message/=sender=3/=action=vote/=target=J2
-```
+Flow : 
 
-### Control -> Control (et Control -> Application sur l'anneau)
+Application demande SC. Une fois reçu, application la ferme directement en envoyant son message de vote en donnée.
 
-Le contrôle estampille (Lamport) puis émet un `control_message`. Le `tee` du script l'envoie à la fois à l'app locale (qui le poussera au navigateur) et au contrôle suivant :
+Lorsque tout le monde a voté, chaque site modifie son état local et remarque le passage à l'étape suivante.
+Important : dans ce cas, on garantit qu'un site ne reçoive pas d'informations incohérentes, puisque recevoir un message concernant le vote suivant ne peut arriver qu'après le dernier du vote précédent.
 
-```
-/=type=control_message/=sender=3/=timestamp=17/=action=vote/=target=J2
-```
 
 ### Actions Navigateur -> Application (via WebSocket, JSON)
 

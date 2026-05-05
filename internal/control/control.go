@@ -77,7 +77,7 @@ func (c *Control) checkCriticalSection() {
 func (c *Control) localStartCriticalSection() {
 	c.sendMessage(transport.Message{
 		Type:   transport.Application,
-		Action: "begin_cs",
+		Action: transport.ActionBeginCS,
 	})
 }
 
@@ -137,11 +137,11 @@ func (c *Control) Run() {
 func (c *Control) handleApplicationMessage(msg *transport.Message) {
 	c.log.Info("Run", fmt.Sprintf("message de l'application locale: data=%v", msg.Data))
 
-	if msg.Action == "request_cs" { // application request la section critique
+	if msg.Action == transport.ActionRequestCS { // application request la section critique
 		// envoie msg de request : augmente aussi la clock
 		c.sendMessage(transport.Message{
 			Type:   transport.Control,
-			Action: "request_cs",
+			Action: transport.ActionRequestCS,
 			// empty data
 		})
 		// stock l'état correspondant
@@ -151,11 +151,11 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 		}
 	}
 
-	if msg.Action == "end_cs" { // application libère la section critique
+	if msg.Action == transport.ActionEndCS { // application libère la section critique
 		// envoie msg de release : augmente aussi la clock
 		c.sendMessage(transport.Message{
 			Type:   transport.Control,
-			Action: "release_cs",
+			Action: transport.ActionReleaseCS,
 			// ici on transmet la data pour synchroniser l'état
 			Data: msg.Data,
 		})
@@ -182,11 +182,11 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 	c.updateClock(msg)
 
 	switch msg.Action {
-	case "request_cs":
+	case transport.ActionRequestCS:
 		c.handleRequestCS(msg)
-	case "acknowledge_cs":
+	case transport.ActionAcknowlegeCS:
 		c.handleAcknowledgeCS(msg)
-	case "release_cs":
+	case transport.ActionReleaseCS:
 		c.handleReleaseCS(msg)
 	default:
 		c.log.Warn("Run", fmt.Sprintf("action inconnue dans message de contrôle: %s", msg.Action))
@@ -206,7 +206,7 @@ func (c *Control) handleRequestCS(msg *transport.Message) {
 	// envoyer un message d'acquittement à senderID
 	ackMsg := transport.Message{
 		Type:   transport.Control,
-		Action: "acknowledge_cs",
+		Action: transport.ActionAcknowlegeCS,
 		// on indique le destinataire dans data
 		Data: map[string]string{
 			"target": fmt.Sprintf("%d", msg.Sender),

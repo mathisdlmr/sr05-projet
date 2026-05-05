@@ -39,10 +39,30 @@ const (
 	Application = "application"
 )
 
+type Action string
+
+// Types d'actions
+const (
+
+	// Envoyé par app au contrôleur, puis par le contrôleur aux autres sites
+	ActionRequestCS Action = "requestCS"
+
+	// Entre les contrôles
+	ActionReleaseCS    Action = "releaseCS"
+	ActionAcknowlegeCS Action = "acknowlegeCS"
+
+	// Depuis et vers l'application
+	ActionEndCS   Action = "endCS"
+	ActionBeginCS Action = "beginCS"
+
+	// Snapshot
+	ActionStartSnapshot Action = "startSnapshot"
+)
+
 // Message représente un type de message avec horodatage, expéditeur et des données structurées.
 type Message struct {
 	Type      string // type de message : control (d'un site à l'autre) ou application (de l'application locale au contrôle)
-	Action    string // champs dédié pour communiquer l'action : enterCS, endCS, startSauvegarde
+	Action    Action // champs dédié pour communiquer l'action : enterCS, endCS, startSauvegarde
 	Timestamp *int
 	Sender    int
 	Data      map[string]string
@@ -61,7 +81,7 @@ func ParseMessage(msg string) (*Message, error) {
 	var timestamp *int
 	sender := 0
 	msgType := ""
-	msgAction := ""
+	var msgAction Action
 	data := make(map[string]string)
 
 	for _, pair := range pairs {
@@ -75,7 +95,7 @@ func ParseMessage(msg string) (*Message, error) {
 			case "type":
 				msgType = parts[1]
 			case "action":
-				msgAction = parts[1]
+				msgAction = Action(parts[1])
 			case "timestamp":
 				if parsed, err := strconv.Atoi(parts[1]); err == nil {
 					timestamp = &parsed

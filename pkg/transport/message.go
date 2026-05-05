@@ -35,14 +35,14 @@ const (
 
 // Types de messages
 const (
-	CriticalSection = "critical_section"
-	ControlMessage  = "control_message"
-	DataMessage     = "data_message"
+	Control     = "control"
+	Application = "application"
 )
 
 // Message représente un type de message avec horodatage, expéditeur et des données structurées.
 type Message struct {
-	Type      string
+	Type      string // type de message : control (d'un site à l'autre) ou application (de l'application locale au contrôle)
+	Action    string // champs dédié pour communiquer l'action : enterCS, endCS, startSauvegarde
 	Timestamp *int
 	Sender    int
 	Data      map[string]string
@@ -61,6 +61,7 @@ func ParseMessage(msg string) (*Message, error) {
 	var timestamp *int
 	sender := 0
 	msgType := ""
+	msgAction := ""
 	data := make(map[string]string)
 
 	for _, pair := range pairs {
@@ -73,6 +74,8 @@ func ParseMessage(msg string) (*Message, error) {
 			switch parts[0] {
 			case "type":
 				msgType = parts[1]
+			case "action":
+				msgAction = parts[1]
 			case "timestamp":
 				if parsed, err := strconv.Atoi(parts[1]); err == nil {
 					timestamp = &parsed
@@ -87,6 +90,7 @@ func ParseMessage(msg string) (*Message, error) {
 
 	return &Message{
 		Type:      msgType,
+		Action:    msgAction,
 		Timestamp: timestamp,
 		Sender:    sender,
 		Data:      data,
@@ -97,6 +101,7 @@ func ParseMessage(msg string) (*Message, error) {
 func (m *Message) String() string {
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("%s%stype%s%s", fieldSep, keyValSep, keyValSep, m.Type))
+	builder.WriteString(fmt.Sprintf("%s%saction%s%s", fieldSep, keyValSep, keyValSep, m.Action))
 	if m.Timestamp != nil {
 		builder.WriteString(fmt.Sprintf("%s%stimestamp%s%d", fieldSep, keyValSep, keyValSep, *m.Timestamp))
 	}

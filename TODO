@@ -13,3 +13,8 @@
 - Rendu : archive tgz + README + slides PDF -
 
 - Réseau IP (sortir des FIFOs de local.sh, cf. nc / tunnel ssh) - Mathis
+
+- Gérer le cas ou il y a des égalitées (prendre le joueur avec un hash de l'id le plus petit et d'une autre partie de l'état du jeu, 
+pour limiter la manipulation, et que les joueurs avantagés/désaventagés changent 
+ou autre, flemme de faire par messages)
+

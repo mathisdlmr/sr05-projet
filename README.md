@@ -77,7 +77,6 @@ Le projet porte sur la création d'une application répartie respectant les cont
 ├── internal
 │   ├── application
 │   │   ├── app.go # Contient la logique principale de l'application
-│   │   ├── filter.go # Forme un filtre sur ce que l'on souhaite forward ou non au server (ce que le joueur a le droit de voir ou pas)
 │   │   └── state.go # Contient les structures de données représentant l'état du jeu côté application
 │   ├── control
 │   │   ├── control.go # Contient la logique principale du centre de contrôle

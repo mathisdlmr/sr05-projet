@@ -1,12 +1,13 @@
-// Binaire application : Contient la logique du jeu, et le filtrage entre le client (server) et le système réparti (control)
+// Binaire application : Contient la logique du jeu, et s'occupe de faire évoluer l'état du jeu à partir des actions reçues
+//                       sur le navigateur web, et via le système réparti (transmis par le centre de contrôle).
 //
 // Lancement :
 //  ./application -id J1 -n application_J1
 //
 // Infos :
 // * Pipeline de communication avec les autres processus :
-//   * Notre joueur.euse fait une action que l'on doit propager au système : server -> application -> control
-//   * L'état du système a changé, on doit remonter l'information au joueur.euse : control -> application -> server
+//   * Notre joueur.euse fait une action que l'on doit propager au système : action sur le navigateur -> application -> control
+//   * L'état du système a changé, on doit remonter l'information au joueur.euse : control -> application -> afficher sur le navigateur
 
 package main
 

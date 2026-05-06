@@ -70,10 +70,8 @@ Le projet porte sur la création d'une application répartie respectant les cont
 ├── cmd
 │   ├── application
 │   │   └── main.go # Lance l'application (internal/application/app.go) qui embarque le server (internal/server/server.go) maintenant la WebSocket avec le frontend
-│   ├── control
-│   │   └── main.go # Lance le centre de contrôle (internal/control/control.go) qui communique dans notre système réparti
-│   └── server
-│       └── main.go # Lance uniquement le server WebSocket (binaire autonome de debug, non utilisé par scripts/local.sh)
+│   └── control
+│       └── main.go # Lance le centre de contrôle (internal/control/control.go) qui communique dans notre système réparti
 ├── docs
 │   └── ... # Contient les images utilisées par le README
 ├── internal

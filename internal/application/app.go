@@ -149,7 +149,6 @@ func (a *App) computeVoteResults() Player {
 	return a.state.Players[max_key]
 }
 
-
 func (a *App) handleVote(voterID string, targetID string) {
 	a.state.Votes[a.state.Players[voterID]] = targetID
 	if a.checkAllVotesCompleted() {
@@ -277,7 +276,7 @@ func (a *App) handleFromBrowser(raw string) {
 	}
 
 	msg := transport.Message{
-		Type:   transport.DataMessage,
+		Type:   transport.Application,
 		Sender: a.siteID,
 		Data:   data,
 	}

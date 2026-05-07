@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: werewolf-fifos
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "werewolf.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.shared.accessMode }}
+  storageClassName: {{ .Values.shared.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.shared.storage }}

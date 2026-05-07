@@ -1,0 +1,26 @@
+game:
+  players: 5
+  wolves: 2
+  witch: true
+
+image:
+  repository: ghcr.io/mathisdlmr/sr05-projet
+  tag: latest
+  pullPolicy: IfNotPresent
+
+namespace: werewolf
+
+shared:
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  storage: 64Mi
+
+nodeSelector: {}
+
+ports:
+  http: 4444
+
+web:
+  # joueur i accessible sur j{i}-{domainSuffix}
+  # Ex : werewolf.mdlmr.fr -> "j1-werewolf.mdlmr.fr"
+  domainSuffix: werewolf.mdlmr.fr

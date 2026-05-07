@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: werewolf
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "werewolf.labels" . | nindent 4 }}
+spec:
+  serviceName: werewolf-headless
+  replicas: {{ .Values.game.players }}
+  selector:
+    matchLabels:
+      app: werewolf
+  updateStrategy:
+    type: OnDelete
+  template:
+    metadata:
+      labels:
+        app: werewolf
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      volumes:
+        - name: fifos
+          persistentVolumeClaim:
+            claimName: werewolf-fifos
+
+      initContainers:
+        - name: init-fifos
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              ORDINAL="${POD_NAME##*-}"
+              SITE_ID=$((ORDINAL + 1))
+              NB="{{ .Values.game.players }}"
+
+              # Créer une FIFO pour chaque site (idempotent, échoue si existe déjà)
+              for s in in_app out_app in_ctl out_ctl; do
+                f="/fifos/${s}_${SITE_ID}"
+                [ -p "$f" ] || mkfifo -m 666 "$f"
+              done
+
+              # Attend que toutes les FIFOs soient montées
+              for i in $(seq 1 "$NB"); do
+                for s in in_app out_app in_ctl out_ctl; do
+                  while [ ! -p "/fifos/${s}_${i}" ]; do
+                    sleep 0.2
+                  done
+                done
+              done
+              echo "Site ${SITE_ID}/${NB} : tous les FIFOs présents"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: fifos
+              mountPath: /fifos
+
+      containers:
+        - name: application
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              ORDINAL="${POD_NAME##*-}"
+              SITE_ID=$((ORDINAL + 1))
+              exec /app/bin/application -n "app${SITE_ID}" -id "J${SITE_ID}" -addr 0.0.0.0 -port {{ .Values.ports.http }} -web /app/web < /fifos/in_app_${SITE_ID} > /fifos/out_app_${SITE_ID}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NB_WOLVES
+              value: "{{ .Values.game.wolves }}"
+            - name: WITCH_ENABLED
+              value: "{{ .Values.game.witch }}"
+            - name: NB_SITES
+              value: "{{ .Values.game.players }}"
+          ports:
+            - name: http
+              containerPort: {{ .Values.ports.http }}
+              protocol: TCP
+          volumeMounts:
+            - name: fifos
+              mountPath: /fifos
+
+        - name: control
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              ORDINAL="${POD_NAME##*-}"
+              SITE_ID=$((ORDINAL + 1))
+              exec /app/bin/control -n "ctl${SITE_ID}" -id "$SITE_ID" -sites {{ .Values.game.players }} < /fifos/in_ctl_${SITE_ID} > /fifos/out_ctl_${SITE_ID}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: fifos
+              mountPath: /fifos
+
+        - name: router # router permet de créer l'anneau de communication entre les ctl des sites
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              ORDINAL="${POD_NAME##*-}"
+              SITE_ID=$((ORDINAL + 1))
+              NB="{{ .Values.game.players }}"
+              NEXT=$(( (SITE_ID % NB) + 1 ))
+
+              cat /fifos/out_app_${SITE_ID} > /fifos/in_ctl_${SITE_ID} &
+
+              tee /fifos/in_app_${SITE_ID} < /fifos/out_ctl_${SITE_ID} > /fifos/in_ctl_${NEXT}
+
+              wait
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: fifos
+              mountPath: /fifos

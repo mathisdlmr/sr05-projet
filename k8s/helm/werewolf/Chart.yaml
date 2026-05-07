@@ -1,0 +1,5 @@
+apiVersion: v2
+name: werewolf
+description: Deploiement du jeu du loup-garou distribué pour sr05 sur kube
+version: 0.1.0
+appVersion: "1.0.0"

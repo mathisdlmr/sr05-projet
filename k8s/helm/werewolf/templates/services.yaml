@@ -1,0 +1,20 @@
+{{- range $i := until (.Values.game.players | int) }}
+{{- $j := add $i 1 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: werewolf-j{{ $j }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "werewolf.labels" $ | nindent 4 }}
+    werewolf/player: "j{{ $j }}"
+spec:
+  selector:
+    statefulset.kubernetes.io/pod-name: werewolf-{{ $i }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: {{ $.Values.ports.http }}
+      protocol: TCP
+{{- end }}

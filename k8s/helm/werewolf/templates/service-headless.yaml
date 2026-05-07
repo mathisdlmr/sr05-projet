@@ -1,0 +1,15 @@
+# requis par le StatefulSet pour les noms DNS stables des pods
+apiVersion: v1
+kind: Service
+metadata:
+  name: werewolf-headless
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "werewolf.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    app: werewolf
+  ports:
+    - name: http
+      port: {{ .Values.ports.http }}

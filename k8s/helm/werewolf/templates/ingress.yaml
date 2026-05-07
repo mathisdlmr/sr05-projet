@@ -1,0 +1,30 @@
+{{- range $i := until (.Values.game.players | int) }}
+{{- $j := add $i 1 }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: werewolf-j{{ $j }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "werewolf.labels" $ | nindent 4 }}
+    werewolf/player: "j{{ $j }}"
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  rules:
+    - host: j{{ $j }}-{{ $.Values.web.domainSuffix }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: werewolf-j{{ $j }}
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - j{{ $j }}-{{ $.Values.web.domainSuffix }}
+{{- end }}

@@ -162,11 +162,16 @@ func (a *App) handleVote(voterID string, targetID string) {
 
 	if a.checkAllVotesCompleted() {
 		target, validtarget := a.computeVoteResults()
-		//Compute résultats
-		//Choisir phase suivante
-		//Compute phase suivante
-		//Passer phase suivante
+		a.applyVoteResults(target, validtarget) // kills target of vote imediatly after PhaseVote
+		if a.state.Phase == PhaseWitch {
+			a.applyNightKills()
+		}
 
+		if a.checkEndOfGame() {
+			// end game here
+			return
+		}
+		a.switchPhase(a.getNextPhase())
 	} else {
 		//send vote to browser comme ça il peut l'afficher
 		a.srv.PushMessageToBrowser(
@@ -177,6 +182,73 @@ func (a *App) handleVote(voterID string, targetID string) {
 					"target": targetID,
 				}})
 	}
+}
+
+func (a *App) switchPhase(next_phase Phase) {
+
+	var message server.BrowserMessage
+
+	switch a.state.Phase {
+	case PhaseNight:
+		message.Action = "switch_to_witch"
+		if a.myRole == RoleWitch {
+			message.Data["kill"] = a.state.KillWolf
+		}
+	case PhaseWitch:
+		message.Action = "switch_to_vote"
+		message.Data["kill1"] = a.state.KillWitch // Attention trouver un moyen de melanger
+		message.Data["kill2"] = a.state.KillWolf
+		message.Data["role1"] = string(a.state.Players[a.state.KillWitch].Role)
+		message.Data["role2"] = string(a.state.Players[a.state.KillWolf].Role)
+	case PhaseVote:
+		message.Action = "switch_to_night"
+		killed, _ := a.computeVoteResults()
+		message.Data["kill"] = killed
+	case PhaseLobby:
+		message.Action = "switch_to_night"
+		message.Data["members"] = "MEMBERS" // A compléter
+		message.Data["YourRole"] = string(a.myRole)
+	}
+	a.srv.PushMessageToBrowser(message)
+
+	//Reset les votes et les kills
+	a.createStartingVoteMap(next_phase)
+
+	a.state.KillWitch = ""
+	a.state.KillWolf = ""
+	a.state.Phase = next_phase
+
+}
+
+func (a *App) applyVoteResults(targetID string, validtarget bool) {
+	if !validtarget {
+		// No valid target, we do nothing
+		return
+	}
+
+	switch a.state.Phase {
+	case PhaseNight:
+		a.state.KillWolf = targetID
+	case PhaseWitch:
+		if targetID == a.state.KillWolf { // C'est un
+			a.state.KillWolf = ""
+		} else {
+			a.state.KillWitch = targetID
+		}
+	case PhaseVote:
+		a.killPlayer(targetID)
+	}
+}
+
+func (a *App) applyNightKills() {
+	if a.state.KillWitch != "" {
+		a.killPlayer(a.state.KillWitch)
+	}
+
+	if a.state.KillWolf != "" {
+		a.killPlayer(a.state.KillWolf)
+	}
+
 }
 
 func (a *App) getNextPhase() Phase {
@@ -235,9 +307,9 @@ func (a *App) checkAllVotesCompleted() bool {
 	return true
 }
 
-func (a *App) createStartingVoteMap() {
+func (a *App) createStartingVoteMap(phase Phase) {
 	var votersrole Role
-	switch a.state.Phase {
+	switch phase {
 	case PhaseNight:
 		votersrole = RoleWolf
 	case PhaseVote:

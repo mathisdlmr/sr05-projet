@@ -158,7 +158,8 @@ func (a *App) computeVoteResults() (string, bool) {
 }
 
 func (a *App) handleVote(voterID string, targetID string) {
-	a.state.Votes[a.state.Players[voterID]] = targetID
+	a.state.Votes[voterID] = targetID
+
 	if a.checkAllVotesCompleted() {
 		target, validtarget := a.computeVoteResults()
 		//Compute résultats
@@ -245,11 +246,11 @@ func (a *App) createStartingVoteMap() {
 		votersrole = RoleWitch
 	}
 
-	a.state.Votes = make(map[Player]string)
+	a.state.Votes = make(map[string]string)
 
-	for _, player := range a.state.Players {
+	for playerID, player := range a.state.Players {
 		if (player.Role == votersrole) || (votersrole == RoleAny) {
-			a.state.Votes[player] = ""
+			a.state.Votes[playerID] = ""
 		}
 	}
 }

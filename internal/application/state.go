@@ -32,18 +32,18 @@ type Player struct {
 type GameState struct {
 	Phase     Phase             `json:"phase"`
 	Players   map[string]Player `json:"players"`
-	Votes     map[Player]string `json:"votes"` // votant : cible
+	Votes     map[string]string `json:"votes"` // votant : cible
 	KillWolf  string            `json:"killWolf"`
 	KillWitch string            `json:"killWitch"`
-	Winner    string            `json:"winner"`    // "" | "WOLVES" | "VILLAGERS"
-	MyID      string            `json:"myId"`      // identifiant du joueur local
+	Winner    string            `json:"winner"` // "" | "WOLVES" | "VILLAGERS"
+	MyID      string            `json:"myId"`   // identifiant du joueur local
 }
 
 func NewGameState(myID string) GameState {
 	return GameState{
 		Phase:   PhaseLobby,
 		Players: make(map[string]Player),
-		Votes:   make(map[Player]string),
+		Votes:   make(map[string]string),
 		MyID:    myID,
 	}
 }

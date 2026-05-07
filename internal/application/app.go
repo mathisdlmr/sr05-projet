@@ -141,12 +141,12 @@ func (a *App) computeVoteResults() (string, bool) {
 	}
 
 	max_value := 0
-	max_key := ""
-	for key, value := range scores {
+	max_target := ""
+	for target, value := range scores {
 		// Cas d'égalité possible, à régler
 		if value > max_value {
 			max_value = value
-			max_key = key
+			max_target = target
 		}
 	}
 
@@ -154,7 +154,7 @@ func (a *App) computeVoteResults() (string, bool) {
 		return NullPlayerID, false
 	}
 
-	return a.state.Players[max_key], true
+	return max_target, true
 }
 
 func (a *App) handleVote(voterID string, targetID string) {

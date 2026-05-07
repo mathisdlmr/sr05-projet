@@ -18,6 +18,10 @@ import (
 	"github.com/sr05-projet/pkg/transport"
 )
 
+const (
+	NullPlayerID string = "NULLPLAYERID"
+)
+
 type App struct {
 	myID   string
 	siteID int
@@ -125,7 +129,7 @@ func (a *App) handleFromControl(line string) {
 	}
 }
 
-func (a *App) computeVoteResults() Player {
+func (a *App) computeVoteResults() (string, bool) {
 	scores := map[string]int{}
 
 	for _, target := range a.state.Votes {
@@ -146,12 +150,17 @@ func (a *App) computeVoteResults() Player {
 		}
 	}
 
-	return a.state.Players[max_key]
+	if max_target == NullPlayerID {
+		return NullPlayerID, false
+	}
+
+	return a.state.Players[max_key], true
 }
 
 func (a *App) handleVote(voterID string, targetID string) {
 	a.state.Votes[a.state.Players[voterID]] = targetID
 	if a.checkAllVotesCompleted() {
+		target, validtarget := a.computeVoteResults()
 		//Compute résultats
 		//Choisir phase suivante
 		//Compute phase suivante

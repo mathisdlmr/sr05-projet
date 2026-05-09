@@ -40,9 +40,8 @@ type Control struct {
 
 func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
 
-	// initialisation de la file d'attente avec (release, 0)
-	queue := make([]queueEntry, nbSites)
-	for i := 0; i < nbSites; i++ {
+	queue := make([]queueEntry, nbSites+1)
+	for i := 1; i <= nbSites; i++ {
 		queue[i] = queueEntry{
 			Status:    statusRelease,
 			Timestamp: 0,
@@ -59,14 +58,22 @@ func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
 	}
 }
 
-// Méthode pour vérifier si on peut entrer en SC
-// si queue[myID] == request et que tous les autres ont une estampille plus grande
+// checkCriticalSection - vérifie si ce site peut entrer en SC :
+// aucun autre site ne doit avoir une requête avec une estampille plus grande 
+// (au sens de la relation <_K vue dans le cours)
 func (c *Control) checkCriticalSection() {
 	if c.queue[c.myID].Status != statusRequest {
 		return
 	}
-	for i := 0; i < c.nbSites; i++ {
-		if i != c.myID && c.queue[i].Status == statusRequest && c.queue[i].Timestamp < c.queue[c.myID].Timestamp {
+	mine := c.queue[c.myID]
+	for i := 1; i <= c.nbSites; i++ {
+		if i == c.myID {
+			continue
+		}
+		other := c.queue[i]
+		if other.Status == statusRequest &&
+			(other.Timestamp < mine.Timestamp ||
+				(other.Timestamp == mine.Timestamp && i < c.myID)) {
 			return
 		}
 	}
@@ -229,7 +236,7 @@ func (c *Control) handleRequestCS(msg *transport.Message) {
 			"target": fmt.Sprintf("%d", msg.Sender),
 		},
 	}
-	c.io.Send(ackMsg.String())
+	c.sendMessage(ackMsg)
 	c.log.Info("Run", fmt.Sprintf("envoi d'un message d'acquittement à %d", msg.Sender))
 	c.checkCriticalSection()
 }

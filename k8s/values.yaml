@@ -1,7 +1,4 @@
-game:
-  players: 5
-  wolves: 2
-  witch: true
+players: 5
 
 image:
   repository: ghcr.io/mathisdlmr/sr05-projet

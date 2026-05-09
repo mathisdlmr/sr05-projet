@@ -263,8 +263,8 @@ func (a *App) handleDistributedAction(data map[string]string) {
 	targetID := data["target"]
 
 	switch data["cmd"] {
-	// case "join":
-	// 	a.applyJoin(data["player"])
+	case "join":
+		a.applyJoin(data["player"])
 
 	case "start":
 		a.applyStart()
@@ -335,17 +335,17 @@ func (a *App) handleDistributedAction(data map[string]string) {
 }
 
 // applyJoin - ajoute un joueur à l'état local, notifie le navigateur et les autres joueurs via une SC "join"
-// func (a *App) applyJoin(playerID string) {
-// 	if _, ok := a.state.Players[playerID]; ok {
-// 		return
-// 	}
-// 	a.state.Players[playerID] = Player{ID: playerID, Role: RoleUnknown, Alive: true}
-// 	a.pushEvent(map[string]interface{}{
-// 		"type":     "playerJoined",
-// 		"playerId": playerID,
-// 	})
-// 	a.log.Info("applyJoin", "joueur rejoint: "+playerID)
-// }
+func (a *App) applyJoin(playerID string) {
+	if _, ok := a.state.Players[playerID]; ok {
+		return
+	}
+	a.state.Players[playerID] = Player{ID: playerID, Role: RoleUnknown, Alive: true}
+	a.pushEvent(map[string]interface{}{
+		"type":     "playerJoined",
+		"playerId": playerID,
+	})
+	a.log.Info("applyJoin", "joueur rejoint: "+playerID)
+}
 
 // applyStart - distribue les rôles, initialise les votes et passe en phase NIGHT
 func (a *App) applyStart() {

@@ -24,9 +24,10 @@ type Server struct {
 	web  string
 	log  *logger.Logger
 
-	mu    sync.Mutex
-	ws    *websocket.Conn
-	inbox chan string
+	mu       sync.Mutex
+	ws       *websocket.Conn
+	inbox    chan string
+	connects chan struct{}
 }
 
 var upgrader = websocket.Upgrader{
@@ -35,13 +36,17 @@ var upgrader = websocket.Upgrader{
 
 func New(addr string, port string, web string, log *logger.Logger) *Server {
 	return &Server{
-		addr:  addr,
-		port:  port,
-		web:   web,
-		log:   log,
-		inbox: make(chan string, 16),
+		addr:     addr,
+		port:     port,
+		web:      web,
+		log:      log,
+		inbox:    make(chan string, 16),
+		connects: make(chan struct{}, 1),
 	}
 }
+
+// Connects - retourne un channel qui reçoit un signal à chaque nouvelle connexion WebSocket
+func (s *Server) Connects() <-chan struct{} { return s.connects }
 
 // Inbox - canal des messages reçus du navigateur (lecture seule pour l'app).
 func (s *Server) Inbox() <-chan string { return s.inbox }
@@ -87,6 +92,11 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	s.ws = cnx
 	s.mu.Unlock()
 	s.log.Info("handleWS", "WebSocket ouverte depuis "+r.RemoteAddr)
+
+	select {
+	case s.connects <- struct{}{}:
+	default:
+	}
 
 	for {
 		_, msg, err := cnx.ReadMessage()

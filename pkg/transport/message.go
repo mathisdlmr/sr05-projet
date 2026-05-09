@@ -130,7 +130,7 @@ func ParseMessage(msg string) (*Message, error) {
 }
 
 // String sérialise le Message en utilisant format spécifié.
-func (m *Message) String() string {
+func (m Message) String() string {
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("%s%stype%s%s", fieldSep, keyValSep, keyValSep, m.Type))
 	builder.WriteString(fmt.Sprintf("%s%saction%s%s", fieldSep, keyValSep, keyValSep, m.Action))

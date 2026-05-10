@@ -13,6 +13,8 @@ const initial: GameState = {
   killWolf: '',
   winner: '',
   joined: false,
+  lastSnapshot: null,
+  snapshotRejection: null,
 }
 
 type Action = ServerEvent | { type: 'wsOpen' } | { type: 'wsClose' }
@@ -124,6 +126,19 @@ function reducer(state: GameState, action: Action): GameState {
         phase: 'END',
         winner: action.winner,
         players: action.players,
+      }
+
+    case 'snapshot_received':
+      return {
+        ...state,
+        lastSnapshot: action.eg,
+        snapshotRejection: null,
+      }
+
+    case 'snapshot_rejected':
+      return {
+        ...state,
+        snapshotRejection: action.reason || 'snapshot refusé',
       }
 
     default:

@@ -4,6 +4,7 @@ import { Lobby } from './components/Lobby'
 import { NightPhase } from './components/NightPhase'
 import { VotePhase } from './components/VotePhase'
 import { EndPhase } from './components/EndPhase'
+import { SnapshotControl } from './components/SnapshotControl'
 
 function roleLabel(role: string): string {
   switch (role) {
@@ -14,7 +15,7 @@ function roleLabel(role: string): string {
   }
 }
 
-function Header({ state }: { state: GameState }) {
+function Header({ state, send }: { state: GameState; send: (action: string, extra?: Record<string, string>) => void }) {
   const statusClass =
     state.wsStatus === 'connected' ? 'connected' :
     state.wsStatus === 'disconnected' ? 'disconnected' : 'connecting'
@@ -40,6 +41,7 @@ function Header({ state }: { state: GameState }) {
           {state.wsStatus === 'connected' ? 'Connecté' :
            state.wsStatus === 'disconnected' ? 'Déconnecté' : 'Connexion...'}
         </span>
+        <SnapshotControl state={state} send={send} />
       </div>
     </header>
   )
@@ -72,7 +74,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header state={state} />
+      <Header state={state} send={send} />
       <main className="main">
         <div className="panel">
           {state.phase === 'LOBBY' && <Lobby state={state} send={send} />}

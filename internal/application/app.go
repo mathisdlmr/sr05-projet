@@ -308,20 +308,23 @@ func (a *App) checkAllVotesCompleted() bool {
 }
 
 func (a *App) createStartingVoteMap(phase Phase) {
-	var votersrole Role
+	var votersRole Role
 	switch phase {
 	case PhaseNight:
-		votersrole = RoleWolf
+		votersRole = RoleWolf
 	case PhaseVote:
-		votersrole = RoleAny
+		votersRole = RoleAny
 	case PhaseWitch:
-		votersrole = RoleWitch
+		votersRole = RoleWitch
 	}
 
 	a.state.Votes = make(map[string]string)
 
 	for playerID, player := range a.state.Players {
-		if (player.Role == votersrole) || (votersrole == RoleAny) {
+		if !player.Alive {
+			continue
+		}
+		if player.Role == votersRole || votersRole == RoleAny {
 			a.state.Votes[playerID] = ""
 		}
 	}

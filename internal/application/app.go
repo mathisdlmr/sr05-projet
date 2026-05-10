@@ -70,6 +70,7 @@ func parseSiteID(id string) int {
 func (a *App) Run() {
 	a.log.Info("Run", "démarrage application, joueur="+a.myID)
 
+	// 1. On démarre server.go qui va gérer les connexions WebSocket avec le navigateur
 	a.srv = server.New(a.addr, a.port, a.web, a.log)
 	go func() {
 		if err := a.srv.Run(); err != nil {
@@ -77,6 +78,7 @@ func (a *App) Run() {
 		}
 	}()
 
+	// 2. On démarre une goroutine qui lit stdin en continu et envoie les lignes dans un canal stdinCh
 	stdinCh := make(chan string, 16)
 	go func() {
 		for {
@@ -94,6 +96,8 @@ func (a *App) Run() {
 		}
 	}()
 
+	// 3. Boucle principale : on écoute à la fois les messages du contrôle (stdinCh), du
+	// navigateur (a.srv.Inbox()) et les nouvelles connexions WebSocket (a.srv.Connects())
 	for {
 		select {
 		case line, ok := <-stdinCh:
@@ -116,10 +120,12 @@ func (a *App) Run() {
 
 // requestCS - demande l'entrée en section critique
 func (a *App) requestCS(data map[string]string) {
-	if a.pending != nil {
+	if a.pending != nil { // On est déjà en attente d'une SC, on ignore la nouvelle demande
 		a.log.Warn("requestCS", "déjà en attente de CS, action ignorée: "+data["cmd"])
 		return
 	}
+
+	// On stocke les données de l'action en attente, qui seront utilisées à la réception du BeginCS
 	a.pending = &pendingData{data: data}
 	if err := a.io.Send(transport.Message{
 		Type:   transport.Application,
@@ -143,6 +149,8 @@ func (a *App) handleFromControl(line string) {
 	}
 
 	switch {
+	// Quand on reçoit un BeginCS, ça veut dire que notre demande de section critique a été acceptée,
+	// et qu'on peut appliquer l'action en attente (pending) et envoyer un EndCS
 	case msg.Type == transport.Application && msg.Action == transport.ActionBeginCS:
 		if a.pending == nil {
 			a.log.Warn("handleFromControl", "BeginCS reçu sans action en attente")
@@ -160,6 +168,8 @@ func (a *App) handleFromControl(line string) {
 		}
 		a.log.Info("handleFromControl", "SC accordée, EndCS envoyé: "+pending.data["cmd"])
 
+	// Quand on reçoit une ReleaseCS, ça veut dire qu'une action a été validée par le contrôle (après accord de tous les joueurs),
+	// et qu'on peut l'appliquer localement (handleDistributedAction)
 	case msg.Type == transport.Control && msg.Action == transport.ActionReleaseCS:
 		a.log.Info("handleFromControl", "ReleaseCS reçu, action: "+msg.Data["cmd"])
 		a.handleDistributedAction(msg.Data)
@@ -303,6 +313,7 @@ func (a *App) applyStart() {
 }
 
 // Used only at Vote Phase
+// applyVoteResult - élimine le joueur le plus voté
 func (a *App) applyVoteResult() {
 	target, valid := a.computeVoteResults()
 
@@ -330,11 +341,45 @@ func (a *App) applyVoteResult() {
 		})
 	}
 
-	a.log.Info("applyVoteResult", "vote résolu, passage en phase NIGHT")
+	a.log.Info("applyVoteResult", "vote résolu")
 }
 
-// applyVoteResult - élimine le joueur le plus voté et passe à la phase suivante
+// sendGameEnd - calcule le vainqueur, met à jour l'état et notifie le navigateur
+func (a *App) sendGameEnd() {
+	allWolvesDead := true
+	for _, p := range a.state.Players {
+		if p.Alive && p.Role == RoleWolf {
+			allWolvesDead = false
+			break
+		}
+	}
 
+	winner := "VILLAGERS"
+	if !allWolvesDead {
+		winner = "WOLVES"
+	}
+
+	a.state.Phase = PhaseEnd
+	a.state.Winner = winner
+
+	allPlayers := make(map[string]interface{})
+	for id, p := range a.state.Players {
+		allPlayers[id] = map[string]interface{}{
+			"id":    id,
+			"role":  string(p.Role),
+			"alive": p.Alive,
+		}
+	}
+
+	a.pushEvent(map[string]interface{}{
+		"type":    "gameEnd",
+		"winner":  winner,
+		"players": allPlayers,
+	})
+	a.log.Info("sendGameEnd", "fin de partie, vainqueur: "+winner)
+}
+
+// killPlayer - met à jour l'état pour marquer un joueur comme éliminé
 func (a *App) killPlayer(targetID string) {
 	if p, ok := a.state.Players[targetID]; ok {
 		p.Alive = false
@@ -344,6 +389,8 @@ func (a *App) killPlayer(targetID string) {
 
 }
 
+// computeVoteResults - calcule le joueur le plus voté à partir de a.state.Votes
+// Retourne le playerID du plus voté et un booléen indiquant si le résultat est valide (non nul)
 func (a *App) computeVoteResults() (string, bool) {
 	scores := map[string]int{}
 	for _, target := range a.state.Votes {
@@ -368,6 +415,7 @@ func (a *App) computeVoteResults() (string, bool) {
 	return maxTarget, true
 }
 
+// checkEndOfGame - vérifie si la partie est terminée (tous les loups sont morts ou les loups ont l'avantage numérique)
 func (a *App) checkEndOfGame() bool {
 	allWolvesDead := true
 	for _, p := range a.state.Players {
@@ -394,6 +442,7 @@ func (a *App) checkEndOfGame() bool {
 	return nbWolves >= nbVillagers
 }
 
+// checkAllVotesCompleted - vérifie si tous les joueurs qui doivent voter ont voté (aucune valeur vide dans a.state.Votes)
 func (a *App) checkAllVotesCompleted() bool {
 	if len(a.state.Votes) == 0 {
 		return false
@@ -406,6 +455,7 @@ func (a *App) checkAllVotesCompleted() bool {
 	return true
 }
 
+// createStartingVoteMap - initialise a.state.Votes avec les joueurs qui doivent voter pour la phase donnée, avec des votes vides
 func (a *App) createStartingVoteMap(phase Phase) {
 	var votersRole Role
 	switch phase {
@@ -437,6 +487,7 @@ type browserAction struct {
 	Msg    string `json:"msg,omitempty"`
 }
 
+// handleFromBrowser - appelé à chaque message JSON reçu du navigateur
 func (a *App) handleFromBrowser(raw string) {
 	a.log.Debug("browser->app", raw)
 

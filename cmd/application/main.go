@@ -2,7 +2,7 @@
 //                       sur le navigateur web, et via le système réparti (transmis par le centre de contrôle).
 //
 // Lancement :
-//  ./application -id J1 -n application_J1
+//  ./application -id J1 -n application_J1 -addr localhost -port 4444 -web ./web
 //
 // Infos :
 // * Pipeline de communication avec les autres processus :
@@ -24,7 +24,7 @@ func main() {
 	name := flag.String("n", "app", "nom du processus (pour les logs)")
 	addr := flag.String("addr", "localhost", "adresse d'écoute")
 	port := flag.String("port", "4444", "port HTTP/WS")
-	web := flag.String("web", "./web", "chemin du dossier web statique")
+	web := flag.String("web", "./web", "chemin vers les fichiers web à servir")
 	flag.Parse()
 
 	log := logger.New(*name)

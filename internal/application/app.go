@@ -269,33 +269,28 @@ func (a *App) getNextPhase() Phase {
 // En attendant les morts sont stockés dans les kills
 func (a *App) checkEndOfGame() bool {
 	allWolvesDead := true
-
-	for _, player := range a.state.Players {
-		if player.Alive && (player.Role == RoleWolf) {
+	for _, p := range a.state.Players {
+		if p.Alive && p.Role == RoleWolf {
 			allWolvesDead = false
 			break
 		}
 	}
-
 	if allWolvesDead {
 		return true
 	}
 
-	nbWolves := 0
-	nbVillagers := 0
-	for _, player := range a.state.Players {
-		if player.Role == RoleWolf {
-			nbWolves += 1
+	nbWolves, nbVillagers := 0, 0
+	for _, p := range a.state.Players {
+		if !p.Alive {
+			continue
+		}
+		if p.Role == RoleWolf {
+			nbWolves++
 		} else {
-			nbVillagers += 1
+			nbVillagers++
 		}
 	}
-
-	if nbWolves >= nbVillagers {
-		return true
-	}
-
-	return false
+	return nbWolves >= nbVillagers
 }
 
 func (a *App) checkAllVotesCompleted() bool {

@@ -43,11 +43,3 @@ func (t *IO) Send(msg string) error {
 	_, err := fmt.Fprintln(t.out, msg)
 	return err
 }
-
-// MustSend - comme Send() mais panique en cas d'erreur
-// A utiliser uniquement quand une erreur d'écriture est fatale
-func (t *IO) MustSend(msg string) {
-	if err := t.Send(msg); err != nil {
-		panic("transport.IO: écriture stdout impossible: " + err.Error())
-	}
-}

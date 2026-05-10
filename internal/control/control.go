@@ -48,6 +48,12 @@ func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
 		}
 	}
 
+	// initialisation de l'horloge vectorielle
+	vectorClock := make([]int, nbSites+1)
+	for i := 1; i <= nbSites; i++ {
+		vectorClock[i] = 0
+	}
+
 	return &Control{
 		myID:    myID,
 		nbSites: nbSites,
@@ -59,7 +65,7 @@ func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
 }
 
 // checkCriticalSection - vérifie si ce site peut entrer en SC :
-// aucun autre site ne doit avoir une requête avec une estampille plus grande 
+// aucun autre site ne doit avoir une requête avec une estampille plus grande
 // (au sens de la relation <_K vue dans le cours)
 func (c *Control) checkCriticalSection() {
 	if c.queue[c.myID].Status != statusRequest {
@@ -109,9 +115,17 @@ func (c *Control) sendMessage(m transport.Message) {
 	// incremente l'horloge vectorielle aussi
 	c.vectorClock[c.myID]++
 
+	// Incremente aussi l'horloge de Lamport
 	c.clock++
+
+	// Ajoute les deux horloges au message
 	ts := c.clock
 	m.Timestamp = &ts
+
+	vc := make([]int, len(c.vectorClock))
+	copy(vc, c.vectorClock)
+	m.VectorClock = vc
+
 	m.Sender = c.myID
 	c.io.Send(m.String())
 }

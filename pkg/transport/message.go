@@ -31,6 +31,18 @@ import (
 const (
 	fieldSep  = "/"
 	keyValSep = "="
+
+	// Séparateurs alternatifs utilisés quand une valeur (typiquement un JSON
+	// dans Data) contient les séparateurs par défaut. Le parser les détecte
+	// dynamiquement (cf. ParseMessage qui lit sep et equ depuis le wire).
+	altFieldSep  = "\x01"
+	altKeyValSep = "\x02"
+)
+
+// Couleurs pour l'algorithme d'instantané (lestage Lai-Yang, algo 11).
+const (
+	ColorWhite = "white"
+	ColorRed   = "red"
 )
 
 // Types de messages
@@ -59,7 +71,23 @@ const (
 	ActionBeginCS Action = "beginCS"
 
 	// Snapshot
-	ActionStartSnapshot Action = "startSnapshot"
+	ActionStartSnapshot    Action = "startSnapshot"
+	ActionSnapshotState    Action = "snapshotState"
+	ActionState            Action = "state"
+	ActionPrepost          Action = "prepost"
+	ActionSnapshotComplete Action = "snapshotComplete"
+	ActionRestoreSnapshot  Action = "restoreSnapshot"
+
+	// ActionSnapshotRejected : envoyé par le Control à son App quand un nouveau
+	// snapshot est demandé alors qu'un autre est déjà en cours.
+	ActionSnapshotRejected Action = "snapshotRejected"
+
+	// ActionWakeup : envoyé par l'initiateur après sa bascule pour réveiller
+	// les autres sites quand il n'y a pas assez de trafic applicatif
+	// (cf. exo 127/128 du poly). Pas lesté en couleur, pas compté dans le
+	// bilan : son handler déclenche la bascule directement, sinon le bilan
+	// ne s'équilibre plus entre snapshots successifs.
+	ActionWakeup Action = "wakeup"
 )
 
 // Message représente un type de message avec horodatage, expéditeur et des données structurées.
@@ -68,6 +96,7 @@ type Message struct {
 	Action      Action      // champs dédié pour communiquer l'action : enterCS, endCS, startSauvegarde
 	Timestamp   *int
 	VectorClock []int
+	Color       string // lestage Lai-Yang : "" si non-applicatif, ColorWhite ou ColorRed sinon
 	Sender      int
 	Data        map[string]string
 }
@@ -87,6 +116,7 @@ func ParseMessage(msg string) (*Message, error) {
 	msgType := MessageType("")
 	var msgAction Action
 	var msgVectorClock []int
+	color := ""
 	data := make(map[string]string)
 
 	for _, pair := range pairs {
@@ -116,6 +146,8 @@ func ParseMessage(msg string) (*Message, error) {
 				}
 			case "sender":
 				sender, _ = strconv.Atoi(parts[1])
+			case "color":
+				color = parts[1]
 			default:
 				data[parts[0]] = parts[1]
 			}
@@ -127,31 +159,52 @@ func ParseMessage(msg string) (*Message, error) {
 		Action:      msgAction,
 		Timestamp:   timestamp,
 		VectorClock: msgVectorClock,
+		Color:       color,
 		Sender:      sender,
 		Data:        data,
 	}, nil
 }
 
-// String sérialise le Message en utilisant format spécifié.
+// String sérialise le Message. Les séparateurs par défaut sont "/" et "=",
+// mais on bascule sur \x01 / \x02 si une valeur dans Data contient déjà
+// l'un de ces caractères (typiquement quand on transporte du JSON).
+// ParseMessage lit les séparateurs depuis les deux premiers octets du wire,
+// donc le switch est transparent pour le destinataire.
 func (m Message) String() string {
+	field, kv := m.pickSeparators()
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("%s%stype%s%s", fieldSep, keyValSep, keyValSep, m.Type))
-	builder.WriteString(fmt.Sprintf("%s%saction%s%s", fieldSep, keyValSep, keyValSep, m.Action))
+	builder.WriteString(fmt.Sprintf("%s%stype%s%s", field, kv, kv, m.Type))
+	builder.WriteString(fmt.Sprintf("%s%saction%s%s", field, kv, kv, m.Action))
 	if m.Timestamp != nil {
-		builder.WriteString(fmt.Sprintf("%s%stimestamp%s%d", fieldSep, keyValSep, keyValSep, *m.Timestamp))
+		builder.WriteString(fmt.Sprintf("%s%stimestamp%s%d", field, kv, kv, *m.Timestamp))
 	}
 	if len(m.VectorClock) > 0 {
 		strs := make([]string, len(m.VectorClock))
 		for i, v := range m.VectorClock {
 			strs[i] = strconv.Itoa(v)
 		}
-		builder.WriteString(fmt.Sprintf("%s%svectorClock%s%s", fieldSep, keyValSep, keyValSep, strings.Join(strs, ",")))
+		builder.WriteString(fmt.Sprintf("%s%svectorClock%s%s", field, kv, kv, strings.Join(strs, ",")))
 	}
-	builder.WriteString(fmt.Sprintf("%s%ssender%s%d", fieldSep, keyValSep, keyValSep, m.Sender))
+	if m.Color != "" {
+		builder.WriteString(fmt.Sprintf("%s%scolor%s%s", field, kv, kv, m.Color))
+	}
+	builder.WriteString(fmt.Sprintf("%s%ssender%s%d", field, kv, kv, m.Sender))
 
 	for k, v := range m.Data {
-		builder.WriteString(fmt.Sprintf("%s%s%s%s%s", fieldSep, keyValSep, k, keyValSep, v))
+		builder.WriteString(fmt.Sprintf("%s%s%s%s%s", field, kv, k, kv, v))
 	}
 
 	return builder.String()
+}
+
+// pickSeparators choisit les séparateurs à utiliser pour la sérialisation
+// en fonction du contenu : si une valeur de Data contient "/" ou "=",
+// on bascule sur les séparateurs alternatifs pour ne pas casser le parsing.
+func (m Message) pickSeparators() (field, kv string) {
+	for _, v := range m.Data {
+		if strings.ContainsAny(v, fieldSep+keyValSep) {
+			return altFieldSep, altKeyValSep
+		}
+	}
+	return fieldSep, keyValSep
 }

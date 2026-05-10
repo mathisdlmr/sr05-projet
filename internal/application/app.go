@@ -103,6 +103,8 @@ func (a *App) Run() {
 			a.handleFromControl(line)
 		case raw := <-a.srv.Inbox():
 			a.handleFromBrowser(raw)
+		case <-a.srv.Connects():
+			a.handleBrowserConnect()
 		}
 	}
 }
@@ -372,31 +374,24 @@ func (a *App) handleFromBrowser(raw string) {
 
 	var action browserAction
 	if err := json.Unmarshal([]byte(raw), &action); err != nil {
-		// Saisie texte libre : on la transforme en action "chat" pour la
-		// faire transiter via le mécanisme normal (utile pour debug).
-		action = browserAction{Action: "chat", Msg: raw}
+		a.log.Warn("handleFromBrowser", "parse: "+err.Error())
+		return
 	}
 	if action.Action == "" {
 		a.log.Warn("handleFromBrowser", "action vide, ignoré")
 		return
 	}
-
-	data := map[string]string{"action": action.Action}
+	if action.Action == "init" {
+		a.sendInit()
+		return
+	}
+	data := map[string]string{
+		"cmd":   action.Action,
+		"voter": a.myID,
+	}
 	if action.Target != "" {
 		data["target"] = action.Target
 	}
-	if action.Msg != "" {
-		data["msg"] = action.Msg
-	}
-
-	msg := transport.Message{
-		Type:   transport.Application,
-		Sender: a.siteID,
-		Data:   data,
-	}
-	if err := a.io.Send(msg.String()); err != nil {
-		a.log.Error("handleFromBrowser", "envoi contrôle: "+err.Error())
-		return
-	}
-	a.log.Info("handleFromBrowser", "envoyé au contrôle: "+msg.String())
+	a.requestCS(data)
+	a.log.Info("handleFromBrowser", "SC demandée pour: "+action.Action)
 }

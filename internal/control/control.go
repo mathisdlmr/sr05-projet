@@ -55,12 +55,13 @@ func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
 	}
 
 	return &Control{
-		myID:    myID,
-		nbSites: nbSites,
-		io:      io,
-		log:     log,
-		clock:   0,
-		queue:   queue,
+		myID:        myID,
+		nbSites:     nbSites,
+		io:          io,
+		log:         log,
+		clock:       0,
+		vectorClock: vectorClock,
+		queue:       queue,
 	}
 }
 

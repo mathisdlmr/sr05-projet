@@ -31,7 +31,8 @@ type Control struct {
 	io      *transport.IO
 	log     *logger.Logger
 
-	clock int
+	clock       int
+	vectorClock []int
 	// file d'attente section critique
 	// tableau de taille nbSites qui contient des
 	queue []queueEntry
@@ -81,11 +82,26 @@ func (c *Control) localStartCriticalSection() {
 	})
 }
 
+// -- Helpers pour l'horloge vectorielle --
+
+func (c *Control) updateVectorClock(vec []int) {
+	// Vi <- Max(Vi, Vm) + 1
+	for i := 0; i < len(vec); i++ {
+		if vec[i] > c.vectorClock[i] {
+			c.vectorClock[i] = vec[i]
+		}
+	}
+	c.vectorClock[c.myID]++
+}
+
 // Wrapper pour l'envoie de message qui :
 // 1. incrémente l'horloge
 // 2. ajoute le timestamp et sender au message
 // 3. envoie le message
 func (c *Control) sendMessage(m transport.Message) {
+	// incremente l'horloge vectorielle aussi
+	c.vectorClock[c.myID]++
+
 	c.clock++
 	ts := c.clock
 	m.Timestamp = &ts
@@ -180,6 +196,7 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 
 	// Recale Lamport : c = max(c, ts) + 1
 	c.updateClock(msg)
+	c.updateVectorClock(msg.VectorClock)
 
 	switch msg.Action {
 	case transport.ActionRequestCS:
@@ -231,6 +248,11 @@ func (c *Control) handleAcknowledgeCS(msg *transport.Message) {
 	}
 	if target != c.myID {
 		c.log.Debug("Run", fmt.Sprintf("message d'acquittement reçu pour %d, pas pour nous (%d), ignoré", target, c.myID))
+		return
+	}
+	// ne pas écraser une requete par un acknowledgement
+	if c.queue[msg.Sender].Status == statusRequest {
+		c.log.Debug("Run", fmt.Sprintf("message d'acquittement reçu de %d, mais on a déjà une requete de ce site, ignoré", msg.Sender))
 		return
 	}
 	c.queue[msg.Sender] = queueEntry{

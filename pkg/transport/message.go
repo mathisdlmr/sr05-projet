@@ -61,11 +61,12 @@ const (
 
 // Message représente un type de message avec horodatage, expéditeur et des données structurées.
 type Message struct {
-	Type      string // type de message : control (d'un site à l'autre) ou application (de l'application locale au contrôle)
-	Action    Action // champs dédié pour communiquer l'action : enterCS, endCS, startSauvegarde
-	Timestamp *int
-	Sender    int
-	Data      map[string]string
+	Type        string // type de message : control (d'un site à l'autre) ou application (de l'application locale au contrôle)
+	Action      Action // champs dédié pour communiquer l'action : enterCS, endCS, startSauvegarde
+	Timestamp   *int
+	VectorClock []int
+	Sender      int
+	Data        map[string]string
 }
 
 // ParseMessage construit un objet Message à partir de la chaîne de caractères formatée.
@@ -82,6 +83,7 @@ func ParseMessage(msg string) (*Message, error) {
 	sender := 0
 	msgType := ""
 	var msgAction Action
+	var msgVectorClock []int
 	data := make(map[string]string)
 
 	for _, pair := range pairs {
@@ -100,6 +102,15 @@ func ParseMessage(msg string) (*Message, error) {
 				if parsed, err := strconv.Atoi(parts[1]); err == nil {
 					timestamp = &parsed
 				}
+			case "vectorClock":
+				if parts[1] != "" {
+					strs := strings.Split(parts[1], ",")
+					for _, s := range strs {
+						if v, err := strconv.Atoi(s); err == nil {
+							msgVectorClock = append(msgVectorClock, v)
+						}
+					}
+				}
 			case "sender":
 				sender, _ = strconv.Atoi(parts[1])
 			default:
@@ -109,11 +120,12 @@ func ParseMessage(msg string) (*Message, error) {
 	}
 
 	return &Message{
-		Type:      msgType,
-		Action:    msgAction,
-		Timestamp: timestamp,
-		Sender:    sender,
-		Data:      data,
+		Type:        msgType,
+		Action:      msgAction,
+		Timestamp:   timestamp,
+		VectorClock: msgVectorClock,
+		Sender:      sender,
+		Data:        data,
 	}, nil
 }
 
@@ -124,6 +136,13 @@ func (m *Message) String() string {
 	builder.WriteString(fmt.Sprintf("%s%saction%s%s", fieldSep, keyValSep, keyValSep, m.Action))
 	if m.Timestamp != nil {
 		builder.WriteString(fmt.Sprintf("%s%stimestamp%s%d", fieldSep, keyValSep, keyValSep, *m.Timestamp))
+	}
+	if len(m.VectorClock) > 0 {
+		strs := make([]string, len(m.VectorClock))
+		for i, v := range m.VectorClock {
+			strs[i] = strconv.Itoa(v)
+		}
+		builder.WriteString(fmt.Sprintf("%s%svectorClock%s%s", fieldSep, keyValSep, keyValSep, strings.Join(strs, ",")))
 	}
 	builder.WriteString(fmt.Sprintf("%s%ssender%s%d", fieldSep, keyValSep, keyValSep, m.Sender))
 

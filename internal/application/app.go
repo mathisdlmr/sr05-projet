@@ -12,7 +12,6 @@ package application
 import (
 	"encoding/json"
 	stdio "io"
-	"sort"
 
 	"github.com/sr05-projet/internal/server"
 	"github.com/sr05-projet/pkg/logger"
@@ -160,8 +159,10 @@ func (a *App) handleFromControl(line string) {
 			a.log.Warn("handleFromControl", "BeginCS reçu sans action en attente")
 			return
 		}
+
+		a.handleDistributedAction(a.pending.data)
 		pending := a.pending
-		a.pending = nil
+
 		if err := a.io.Send(transport.Message{
 			Type:   transport.TypeApplication,
 			Action: transport.ActionEndCS,
@@ -170,8 +171,8 @@ func (a *App) handleFromControl(line string) {
 		}.String()); err != nil {
 			a.log.Error("handleFromControl", "envoi EndCS: "+err.Error())
 		}
-		a.handleDistributedAction(pending.data)
 		a.log.Info("handleFromControl", "SC accordée, EndCS envoyé: "+pending.data["cmd"])
+		a.pending = nil
 
 	// Quand on reçoit une ReleaseCS, ça veut dire qu'une action a été validée par le contrôle (après accord de tous les joueurs),
 	// et qu'on peut l'appliquer localement (handleDistributedAction)
@@ -192,7 +193,7 @@ func (a *App) handleDistributedAction(data map[string]string) {
 		a.applyJoin(data["player"])
 
 	case "start":
-		a.applyStart()
+		a.applyStart(data)
 
 	case "wolfkill":
 		if a.state.Phase != PhaseNight {
@@ -254,6 +255,38 @@ func (a *App) handleDistributedAction(data map[string]string) {
 			a.applyVoteResult()
 			a.transitionToNight()
 		}
+	case "attribution":
+
+		// Si ni role ni id ne sont définits, alors c'est moi même qui doit choisir un rôle.
+		// Donc je set mon id et pick un role.
+
+		role := a.pickRole()
+		a.pending.data["cmd"] = "applyattribution"
+		a.pending.data["role"] = string(role)
+		a.pending.data["id"] = a.myID
+		a.myRole = role
+		a.applyAttribution(a.myID, role)
+		if a.checkEveryoneHasRole() {
+			a.transitionToNight()
+			a.pushEvent(map[string]interface{}{
+				"type":    "gameStart",
+				"myRole":  string(a.myRole),
+				"players": a.buildFilteredPlayers(),
+			})
+			a.log.Info("handleDistributedAction", "partie démarrée, rôle local: "+string(a.myRole))
+		}
+
+	case "applyattribution":
+		a.applyAttribution(data["id"], Role(data["role"]))
+		if a.checkEveryoneHasRole() {
+			a.transitionToNight()
+			a.pushEvent(map[string]interface{}{
+				"type":    "gameStart",
+				"myRole":  string(a.myRole),
+				"players": a.buildFilteredPlayers(),
+			})
+			a.log.Info("handleDistributedAction", "partie démarrée, rôle local: "+string(a.myRole))
+		}
 
 	default:
 		a.log.Warn("handleDistributedAction", "action inconnue: "+data["cmd"])
@@ -274,47 +307,27 @@ func (a *App) applyJoin(playerID string) {
 }
 
 // applyStart - distribue les rôles, initialise les votes et passe en phase NIGHT
-func (a *App) applyStart() {
+func (a *App) applyStart(data map[string]string) {
 	if a.state.Phase != PhaseLobby {
 		a.log.Warn("applyStart", "start ignoré hors phase LOBBY")
 		return
 	}
 
-	playerIDs := make([]string, 0, len(a.state.Players))
-	for id := range a.state.Players {
-		playerIDs = append(playerIDs, id)
+	if data["voter"] == a.myID {
+		// Choisir son rôle et le mettre dans le message à envoyer
+		role := a.pickRole()
+		a.applyAttribution(a.myID, role)
+		a.myRole = role
+		a.pending.data["role"] = string(role)
+		a.pending.data["id"] = a.myID
+
+	} else {
+		// Appliquer le rôle reçu et requestCS
+		a.applyAttribution(data["id"], Role(data["role"]))
+		a.requestCS(map[string]string{
+			"cmd": "attribution",
+		})
 	}
-	sort.Strings(playerIDs)
-
-	n := len(playerIDs)
-	nWolves := n / 3 // 1/3 des joueurs sont des loups
-	if nWolves == 0 {
-		nWolves = 1
-	}
-
-	for i, id := range playerIDs {
-		p := a.state.Players[id]
-		switch {
-		case i < nWolves:
-			p.Role = RoleWolf
-		case i == nWolves:
-			p.Role = RoleWitch
-		default:
-			p.Role = RoleVillager
-		}
-		a.state.Players[id] = p
-	}
-
-	a.myRole = a.state.Players[a.myID].Role
-	a.createStartingVoteMap(PhaseNight)
-	a.state.Phase = PhaseNight
-
-	a.pushEvent(map[string]interface{}{
-		"type":    "gameStart",
-		"myRole":  string(a.myRole),
-		"players": a.buildFilteredPlayers(),
-	})
-	a.log.Info("applyStart", "partie démarrée, rôle local: "+string(a.myRole))
 }
 
 // Used only at Vote Phase

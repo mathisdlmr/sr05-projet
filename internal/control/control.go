@@ -173,13 +173,14 @@ func (c *Control) Run() {
 }
 
 func (c *Control) handleApplicationMessage(msg *transport.Message) {
-	c.log.Info("Run", fmt.Sprintf("message de l'application locale: data=%v", msg.Data))
 
 	// Ignore les message destinés à l'application provenant du control précédent dans l'anneau
 	// Les messages de types application sont seulement a destination interne aux sites
 	if msg.Sender != c.myID {
 		return
 	}
+
+	c.log.Info("Run", fmt.Sprintf("message de l'application locale: data=%v", msg.Data))
 
 	if msg.Action == transport.ActionRequestCS { // application request la section critique
 		// envoie msg de request : augmente aussi la clock

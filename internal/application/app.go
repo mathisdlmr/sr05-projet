@@ -148,10 +148,14 @@ func (a *App) handleFromControl(line string) {
 		return
 	}
 
-	switch {
+	if msg.Type != transport.TypeApplication {
+		return
+	}
+
+	switch msg.Action {
 	// Quand on reçoit un BeginCS, ça veut dire que notre demande de section critique a été acceptée,
 	// et qu'on peut appliquer l'action en attente (pending) et envoyer un EndCS
-	case msg.Type == transport.TypeApplication && msg.Action == transport.ActionBeginCS:
+	case transport.ActionBeginCS:
 		if a.pending == nil {
 			a.log.Warn("handleFromControl", "BeginCS reçu sans action en attente")
 			return
@@ -166,11 +170,12 @@ func (a *App) handleFromControl(line string) {
 		}.String()); err != nil {
 			a.log.Error("handleFromControl", "envoi EndCS: "+err.Error())
 		}
+		a.handleDistributedAction(pending.data)
 		a.log.Info("handleFromControl", "SC accordée, EndCS envoyé: "+pending.data["cmd"])
 
 	// Quand on reçoit une ReleaseCS, ça veut dire qu'une action a été validée par le contrôle (après accord de tous les joueurs),
 	// et qu'on peut l'appliquer localement (handleDistributedAction)
-	case msg.Type == transport.TypeControl && msg.Action == transport.ActionReleaseCS:
+	case transport.ActionReleaseCS:
 		a.log.Info("handleFromControl", "ReleaseCS reçu, action: "+msg.Data["cmd"])
 		a.handleDistributedAction(msg.Data)
 	}

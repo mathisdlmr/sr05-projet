@@ -175,6 +175,12 @@ func (c *Control) Run() {
 func (c *Control) handleApplicationMessage(msg *transport.Message) {
 	c.log.Info("Run", fmt.Sprintf("message de l'application locale: data=%v", msg.Data))
 
+	// Ignore les message destinés à l'application provenant du control précédent dans l'anneau
+	// Les messages de types application sont seulement a destination interne aux sites
+	if msg.Sender != c.myID {
+		return
+	}
+
 	if msg.Action == transport.ActionRequestCS { // application request la section critique
 		// envoie msg de request : augmente aussi la clock
 		c.sendMessage(transport.Message{
@@ -289,5 +295,13 @@ func (c *Control) handleReleaseCS(msg *transport.Message) {
 		Status:    statusRelease,
 		Timestamp: *msg.Timestamp,
 	}
+
+	// Transmettre l'info reçue des autres sites vers l'application
+	c.sendMessage(transport.Message{
+		Type:   transport.TypeApplication,
+		Action: transport.ActionReleaseCS,
+		Data:   msg.Data,
+	})
+
 	c.checkCriticalSection()
 }

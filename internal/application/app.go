@@ -22,17 +22,22 @@ const (
 	NullPlayerID string = "NULLPLAYERID"
 )
 
+type pendingData struct {
+	data map[string]string
+}
+
 type App struct {
-	myID   string
-	siteID int
-	myRole Role
-	state  GameState
-	io     *transport.IO
-	log    *logger.Logger
-	addr   string
-	port   string
-	web    string
-	srv    *server.Server
+	myID    string
+	siteID  int
+	myRole  Role
+	state   GameState
+	io      *transport.IO
+	log     *logger.Logger
+	addr    string
+	port    string
+	web     string
+	srv     *server.Server
+	pending *pendingData
 }
 
 func New(myID string, io *transport.IO, log *logger.Logger, addr string, port string, web string) *App {
@@ -102,7 +107,28 @@ func (a *App) Run() {
 	}
 }
 
-// ========= Messages venant du contrôle (format /=type=...) ========= //
+// --- Connexion navigateur ---
+
+// --- Gestion de la section critique
+
+// requestCS - demande l'entrée en section critique
+func (a *App) requestCS(data map[string]string) {
+	if a.pending != nil {
+		a.log.Warn("requestCS", "déjà en attente de CS, action ignorée: "+data["cmd"])
+		return
+	}
+	a.pending = &pendingData{data: data}
+	if err := a.io.Send(transport.Message{
+		Type:   transport.Application,
+		Action: transport.ActionRequestCS,
+		Sender: a.siteID,
+	}.String()); err != nil {
+		a.log.Error("requestCS", "envoi RequestCS: "+err.Error())
+	}
+	a.log.Info("requestCS", "demande de SC pour: "+data["cmd"])
+}
+
+// --- Messages venant du contrôle (format /=type=...) ---
 
 func (a *App) handleFromControl(line string) {
 	a.log.Debug("ctrl->app", line)
@@ -113,19 +139,27 @@ func (a *App) handleFromControl(line string) {
 		return
 	}
 
-	if msg.Type != transport.Application {
-		return
-	}
+	switch {
+	case msg.Type == transport.Application && msg.Action == transport.ActionBeginCS:
+		if a.pending == nil {
+			a.log.Warn("handleFromControl", "BeginCS reçu sans action en attente")
+			return
+		}
+		pending := a.pending
+		a.pending = nil
+		if err := a.io.Send(transport.Message{
+			Type:   transport.Application,
+			Action: transport.ActionEndCS,
+			Sender: a.siteID,
+			Data:   pending.data,
+		}.String()); err != nil {
+			a.log.Error("handleFromControl", "envoi EndCS: "+err.Error())
+		}
+		a.log.Info("handleFromControl", "SC accordée, EndCS envoyé: "+pending.data["cmd"])
 
-	switch msg.Action {
-	case transport.ActionEndCS:
-		// Message applicatif estampillé qui circule entre les sites :
-		// Ce sera toujours un vote
-	case transport.ActionBeginCS:
-		// 	Transmettre a la routine qui veut commencer une critical section
-	default:
-		// Tout le reste (CriticalSection, types inconnus) ne concerne pas l'app.
-		a.log.Debug("handleFromControl", "type ignoré: "+msg.Type) // ne devrait pas arriver
+	case msg.Type == transport.Control && msg.Action == transport.ActionReleaseCS:
+		a.log.Info("handleFromControl", "ReleaseCS reçu, action: "+msg.Data["cmd"])
+		//a.handleDistributedAction(msg.Data)
 	}
 }
 

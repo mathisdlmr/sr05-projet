@@ -395,8 +395,11 @@ func (a *App) checkEndOfGame() bool {
 }
 
 func (a *App) checkAllVotesCompleted() bool {
+	if len(a.state.Votes) == 0 {
+		return false
+	}
 	for _, vote := range a.state.Votes {
-		if vote != "" {
+		if vote == "" {
 			return false
 		}
 	}

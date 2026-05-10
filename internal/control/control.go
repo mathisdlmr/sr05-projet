@@ -91,7 +91,7 @@ func (c *Control) checkCriticalSection() {
 // Message envoyé pour lancer la section critique dans l'app
 func (c *Control) localStartCriticalSection() {
 	c.sendMessage(transport.Message{
-		Type:   transport.Application,
+		Type:   transport.TypeApplication,
 		Action: transport.ActionBeginCS,
 	})
 }
@@ -162,9 +162,9 @@ func (c *Control) Run() {
 
 		// Gestion des messages selon le type :
 		switch msg.Type {
-		case transport.Application: // message de l'application locale
+		case transport.TypeApplication: // message de l'application locale
 			c.handleApplicationMessage(msg)
-		case transport.Control: // message de contrôle d'un autre site
+		case transport.TypeControl: // message de contrôle d'un autre site
 			c.handleControlMessage(msg)
 		default:
 			c.log.Warn("Run", fmt.Sprintf("message avec type inconnu: type=%s data=%v", msg.Type, msg.Data))
@@ -178,7 +178,7 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 	if msg.Action == transport.ActionRequestCS { // application request la section critique
 		// envoie msg de request : augmente aussi la clock
 		c.sendMessage(transport.Message{
-			Type:   transport.Control,
+			Type:   transport.TypeControl,
 			Action: transport.ActionRequestCS,
 			// empty data
 		})
@@ -192,7 +192,7 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 	if msg.Action == transport.ActionEndCS { // application libère la section critique
 		// envoie msg de release : augmente aussi la clock
 		c.sendMessage(transport.Message{
-			Type:   transport.Control,
+			Type:   transport.TypeControl,
 			Action: transport.ActionReleaseCS,
 			// ici on transmet la data pour synchroniser l'état
 			Data: msg.Data,
@@ -244,7 +244,7 @@ func (c *Control) handleRequestCS(msg *transport.Message) {
 	}
 	// envoyer un message d'acquittement à senderID
 	ackMsg := transport.Message{
-		Type:   transport.Control,
+		Type:   transport.TypeControl,
 		Action: transport.ActionAcknowlegeCS,
 		// on indique le destinataire dans data
 		Data: map[string]string{

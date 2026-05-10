@@ -34,9 +34,12 @@ const (
 )
 
 // Types de messages
+
+type MessageType string
+
 const (
-	Control     = "control"
-	Application = "application"
+	TypeControl     MessageType = "control"
+	TypeApplication MessageType = "application"
 )
 
 type Action string
@@ -61,8 +64,8 @@ const (
 
 // Message représente un type de message avec horodatage, expéditeur et des données structurées.
 type Message struct {
-	Type        string // type de message : control (d'un site à l'autre) ou application (de l'application locale au contrôle)
-	Action      Action // champs dédié pour communiquer l'action : enterCS, endCS, startSauvegarde
+	Type        MessageType // type de message : control (d'un site à l'autre) ou application (de l'application locale au contrôle)
+	Action      Action      // champs dédié pour communiquer l'action : enterCS, endCS, startSauvegarde
 	Timestamp   *int
 	VectorClock []int
 	Sender      int
@@ -81,7 +84,7 @@ func ParseMessage(msg string) (*Message, error) {
 
 	var timestamp *int
 	sender := 0
-	msgType := ""
+	msgType := MessageType("")
 	var msgAction Action
 	var msgVectorClock []int
 	data := make(map[string]string)
@@ -95,7 +98,7 @@ func ParseMessage(msg string) (*Message, error) {
 		if len(parts) == 2 {
 			switch parts[0] {
 			case "type":
-				msgType = parts[1]
+				msgType = MessageType(parts[1])
 			case "action":
 				msgAction = Action(parts[1])
 			case "timestamp":

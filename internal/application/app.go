@@ -12,6 +12,7 @@ package application
 import (
 	"encoding/json"
 	stdio "io"
+	"sort"
 
 	"github.com/sr05-projet/internal/server"
 	"github.com/sr05-projet/pkg/logger"
@@ -161,148 +162,212 @@ func (a *App) handleFromControl(line string) {
 
 	case msg.Type == transport.Control && msg.Action == transport.ActionReleaseCS:
 		a.log.Info("handleFromControl", "ReleaseCS reçu, action: "+msg.Data["cmd"])
-		//a.handleDistributedAction(msg.Data)
+		a.handleDistributedAction(msg.Data)
 	}
+}
+
+// --- Actions propres au jeu (distribuées) --- //
+
+func (a *App) handleDistributedAction(data map[string]string) {
+	voterID := data["voter"]
+	targetID := data["target"]
+
+	switch data["cmd"] {
+	// case "join":
+	// 	a.applyJoin(data["player"])
+
+	case "start":
+		a.applyStart()
+
+	case "wolfkill":
+		if a.state.Phase != PhaseNight {
+			a.log.Warn("handleDistributedAction", "wolfkill ignoré hors phase NIGHT")
+			return
+		}
+		a.state.Votes[voterID] = targetID
+		evt := map[string]interface{}{
+			"type":  "wolfVoted",
+			"voter": voterID,
+		}
+		if a.myRole == RoleWolf {
+			evt["target"] = targetID
+		}
+		a.pushEvent(evt)
+		if a.checkAllVotesCompleted() {
+			target, valid := a.computeVoteResults()
+			if valid {
+				a.state.KillWolf = target
+			}
+			a.transitionToWitch()
+		}
+
+	case "witchsave":
+		if a.state.Phase != PhaseWitch {
+			a.log.Warn("handleDistributedAction", "witchsave ignoré hors phase WITCH")
+			return
+		}
+		a.state.KillWolf = ""
+		a.transitionToVote()
+
+	case "witchkill":
+		if a.state.Phase != PhaseWitch {
+			a.log.Warn("handleDistributedAction", "witchkill ignoré hors phase WITCH")
+			return
+		}
+		a.state.KillWitch = targetID
+		a.transitionToVote()
+
+	case "witchskip":
+		if a.state.Phase != PhaseWitch {
+			a.log.Warn("handleDistributedAction", "witchskip ignoré hors phase WITCH")
+			return
+		}
+		a.transitionToVote()
+
+	case "vote":
+		if a.state.Phase != PhaseVote {
+			a.log.Warn("handleDistributedAction", "vote ignoré hors phase VOTE")
+			return
+		}
+		a.state.Votes[voterID] = targetID
+		a.pushEvent(map[string]interface{}{
+			"type":   "voted",
+			"voter":  voterID,
+			"target": targetID,
+		})
+		if a.checkAllVotesCompleted() {
+			a.applyVoteResult()
+			a.transitionToNight()
+		}
+
+	default:
+		a.log.Warn("handleDistributedAction", "action inconnue: "+data["cmd"])
+	}
+}
+
+// applyJoin - ajoute un joueur à l'état local, notifie le navigateur et les autres joueurs via une SC "join"
+// func (a *App) applyJoin(playerID string) {
+// 	if _, ok := a.state.Players[playerID]; ok {
+// 		return
+// 	}
+// 	a.state.Players[playerID] = Player{ID: playerID, Role: RoleUnknown, Alive: true}
+// 	a.pushEvent(map[string]interface{}{
+// 		"type":     "playerJoined",
+// 		"playerId": playerID,
+// 	})
+// 	a.log.Info("applyJoin", "joueur rejoint: "+playerID)
+// }
+
+// applyStart - distribue les rôles, initialise les votes et passe en phase NIGHT
+func (a *App) applyStart() {
+	if a.state.Phase != PhaseLobby {
+		a.log.Warn("applyStart", "start ignoré hors phase LOBBY")
+		return
+	}
+
+	playerIDs := make([]string, 0, len(a.state.Players))
+	for id := range a.state.Players {
+		playerIDs = append(playerIDs, id)
+	}
+	sort.Strings(playerIDs)
+
+	n := len(playerIDs)
+	nWolves := n / 3 // 1/3 des joueurs sont des loups
+	if nWolves == 0 {
+		nWolves = 1
+	}
+
+	for i, id := range playerIDs {
+		p := a.state.Players[id]
+		switch {
+		case i < nWolves:
+			p.Role = RoleWolf
+		case i == nWolves:
+			p.Role = RoleWitch
+		default:
+			p.Role = RoleVillager
+		}
+		a.state.Players[id] = p
+	}
+
+	a.myRole = a.state.Players[a.myID].Role
+	a.createStartingVoteMap(PhaseNight)
+	a.state.Phase = PhaseNight
+
+	a.pushEvent(map[string]interface{}{
+		"type":    "gameStart",
+		"myRole":  string(a.myRole),
+		"players": a.buildFilteredPlayers(),
+	})
+	a.log.Info("applyStart", "partie démarrée, rôle local: "+string(a.myRole))
+}
+
+// Used only at Vote Phase
+func (a *App) applyVoteResult() {
+	target, valid := a.computeVoteResults()
+
+	if valid {
+		a.killPlayer(target)
+	}
+
+	if a.checkEndOfGame() {
+		if valid {
+			a.pushEvent(map[string]interface{}{
+				"type":      "voteEliminated",
+				"playerId":  target,
+				"nextPhase": "END",
+			})
+		}
+		a.sendGameEnd()
+		return
+	}
+
+	if valid {
+		a.pushEvent(map[string]interface{}{
+			"type":      "voteEliminated",
+			"playerId":  target,
+			"nextPhase": "NIGHT",
+		})
+	}
+
+	a.log.Info("applyVoteResult", "vote résolu, passage en phase NIGHT")
+}
+
+// applyVoteResult - élimine le joueur le plus voté et passe à la phase suivante
+
+func (a *App) killPlayer(targetID string) {
+	if p, ok := a.state.Players[targetID]; ok {
+		p.Alive = false
+		a.state.Players[targetID] = p
+		a.log.Info("killPlayer", "joueur éliminé: "+targetID)
+	}
+
 }
 
 func (a *App) computeVoteResults() (string, bool) {
 	scores := map[string]int{}
-
 	for _, target := range a.state.Votes {
-		if _, ok := scores[target]; ok {
-			scores[target] += 1
-		} else {
-			scores[target] = 1
+		if target == "" {
+			continue
 		}
+		scores[target]++
 	}
 
-	max_value := 0
-	max_target := ""
+	maxValue := 0
+	maxTarget := ""
 	for target, value := range scores {
-		// Cas d'égalité possible, à régler
-		if value > max_value {
-			max_value = value
-			max_target = target
+		if value > maxValue {
+			maxValue = value
+			maxTarget = target
 		}
 	}
 
-	if max_target == NullPlayerID {
-		return NullPlayerID, false
+	if maxTarget == NullPlayerID || maxTarget == "" {
+		return "", false
 	}
-
-	return max_target, true
+	return maxTarget, true
 }
 
-func (a *App) handleVote(voterID string, targetID string) {
-	a.state.Votes[voterID] = targetID
-
-	if a.checkAllVotesCompleted() {
-		target, validtarget := a.computeVoteResults()
-		a.applyVoteResults(target, validtarget) // kills target of vote imediatly after PhaseVote
-		if a.state.Phase == PhaseWitch {
-			a.applyNightKills()
-		}
-
-		if a.checkEndOfGame() {
-			// end game here
-			return
-		}
-		a.switchPhase(a.getNextPhase())
-	} else {
-		//send vote to browser comme ça il peut l'afficher
-		a.srv.PushMessageToBrowser(
-			server.BrowserMessage{
-				Action: "vote",
-				Data: map[string]string{
-					"voter":  voterID,
-					"target": targetID,
-				}})
-	}
-}
-
-func (a *App) switchPhase(next_phase Phase) {
-
-	var message server.BrowserMessage
-
-	switch a.state.Phase {
-	case PhaseNight:
-		message.Action = "switch_to_witch"
-		if a.myRole == RoleWitch {
-			message.Data["kill"] = a.state.KillWolf
-		}
-	case PhaseWitch:
-		message.Action = "switch_to_vote"
-		message.Data["kill1"] = a.state.KillWitch // Attention trouver un moyen de melanger
-		message.Data["kill2"] = a.state.KillWolf
-		message.Data["role1"] = string(a.state.Players[a.state.KillWitch].Role)
-		message.Data["role2"] = string(a.state.Players[a.state.KillWolf].Role)
-	case PhaseVote:
-		message.Action = "switch_to_night"
-		killed, _ := a.computeVoteResults()
-		message.Data["kill"] = killed
-	case PhaseLobby:
-		message.Action = "switch_to_night"
-		message.Data["members"] = "MEMBERS" // A compléter
-		message.Data["YourRole"] = string(a.myRole)
-	}
-	a.srv.PushMessageToBrowser(message)
-
-	//Reset les votes et les kills
-	a.createStartingVoteMap(next_phase)
-
-	a.state.KillWitch = ""
-	a.state.KillWolf = ""
-	a.state.Phase = next_phase
-
-}
-
-func (a *App) applyVoteResults(targetID string, validtarget bool) {
-	if !validtarget {
-		// No valid target, we do nothing
-		return
-	}
-
-	switch a.state.Phase {
-	case PhaseNight:
-		a.state.KillWolf = targetID
-	case PhaseWitch:
-		if targetID == a.state.KillWolf { // C'est un
-			a.state.KillWolf = ""
-		} else {
-			a.state.KillWitch = targetID
-		}
-	case PhaseVote:
-		a.killPlayer(targetID)
-	}
-}
-
-func (a *App) applyNightKills() {
-	if a.state.KillWitch != "" {
-		a.killPlayer(a.state.KillWitch)
-	}
-
-	if a.state.KillWolf != "" {
-		a.killPlayer(a.state.KillWolf)
-	}
-
-}
-
-func (a *App) getNextPhase() Phase {
-	switch a.state.Phase {
-	case PhaseLobby:
-		return PhaseNight
-	case PhaseNight:
-		return PhaseWitch
-	case PhaseWitch:
-		return PhaseVote
-	default:
-		return PhaseNight
-	}
-
-}
-
-// Suppose qu'un player ne "meurt" réellement qu'a la fin du vote du village ou a la fin du tour de la sorcière.
-// En attendant les morts sont stockés dans les kills
 func (a *App) checkEndOfGame() bool {
 	allWolvesDead := true
 	for _, p := range a.state.Players {

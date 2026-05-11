@@ -1,6 +1,9 @@
 package application
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"github.com/sr05-projet/pkg/transport"
+)
 
 type browserAction struct {
 	Action string `json:"action"`

@@ -84,7 +84,9 @@ Le projet porte sur la création d'une application répartie respectant les cont
 │   │   ├── state.go           # Structures de données (GameState, Player, Phase, Role)
 │   │   └── transitions.go     # Transitions de phase (→WITCH, →VOTE, →NIGHT)
 │   ├── control
-│   │   ├── control.go         # File d'attente Lamport, horloges scalaire et vectorielle, anneau
+│   │   ├── control.go         # Dispatcher central : reçoit les message + les redirige vers les handles, et gère l'envoie de messages
+│   │   ├── criticalsection.go # Gestion des sections critiques (demande de SC, Acknowledge, fin de SC)
+│   │   ├── handlers.go        # Handlers pour gérer les requêtes de l'application locale et des controler des autres sites
 │   │   └── snapshot.go        # Implémentation des snapshots réalisées dans notre système
 │   └── server
 │       └── server.go          # Serveur HTTP + WebSocket (gorilla/websocket)

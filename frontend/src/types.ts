@@ -20,6 +20,32 @@ export interface GameState {
   winner: string
   joined: boolean
   // myRole is always set: '?' means role not yet revealed (LOBBY)
+  lastSnapshot: SnapshotEG | null      // dernière sauvegarde reçue via algo 11
+  snapshotRejection: string | null     // message si dernier déclencheur refusé
+}
+
+// ── Snapshot (algo 11) ──────────────────────────────────────────────────────
+
+export interface SnapshotQueueEntry {
+  status: number    // 1=request, 2=acknowledge, 3=release
+  timestamp: number
+}
+
+export interface SnapshotControlState {
+  queue: SnapshotQueueEntry[]
+  bilan: number
+  vectorClock: number[]
+}
+
+export interface SnapshotSiteState {
+  controlState: SnapshotControlState
+  appState: string                       // JSON string du GameState côté Go
+  vectorClock: number[]
+}
+
+export interface SnapshotEG {
+  states: Record<string, SnapshotSiteState>  // clé = siteID stringifié
+  preposts: string[]                          // messages préposts au format wire
 }
 
 // ── Événements serveur -> navigateur ──────────────────────────────────────────
@@ -34,3 +60,5 @@ export type ServerEvent =
   | { type: 'voted'; voter: string; target: string }
   | { type: 'voteEliminated'; playerId: string; nextPhase: 'NIGHT' | 'END' }
   | { type: 'gameEnd'; winner: string; players: Record<string, Player> }
+  | { type: 'snapshot_received'; eg: SnapshotEG }
+  | { type: 'snapshot_rejected'; reason: string }

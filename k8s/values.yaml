@@ -2,7 +2,7 @@ players: 5
 
 image:
   repository: ghcr.io/mathisdlmr/sr05-projet
-  tag: latest
+  tag: sha-cb1cba7
   pullPolicy: IfNotPresent
 
 namespace: werewolf

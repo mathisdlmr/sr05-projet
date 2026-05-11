@@ -62,6 +62,18 @@ func (a *App) transitionToVote() {
 	a.log.Info("transitionToVote", "passage en phase VOTE")
 }
 
+func (a *App) transitionFromStart() {
+	a.transitionToNight()
+	a.pushEvent(map[string]interface{}{
+		"type":    "gameStart",
+		"myRole":  string(a.myRole),
+		"players": a.buildFilteredPlayers(),
+	})
+
+	a.log.Info("transitionFromStart", "partie démarrée, rôle local: "+string(a.myRole))
+
+}
+
 func (a *App) transitionToNight() {
 	a.createStartingVoteMap(PhaseNight)
 	a.state.Phase = PhaseNight

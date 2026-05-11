@@ -4,7 +4,7 @@ const (
 	NullPlayerID string = "NULLPLAYERID"
 )
 
-// handleDistributedAction - traite les actions reçues des autres joueurs via la communication SC, 
+// handleDistributedAction - traite les actions reçues des autres joueurs via la communication SC,
 // met à jour l'état local et notifie le navigateur
 func (a *App) handleDistributedAction(data map[string]string) {
 	voterID := data["voter"]
@@ -79,9 +79,6 @@ func (a *App) handleDistributedAction(data map[string]string) {
 		}
 	case "attribution":
 
-		// Si ni role ni id ne sont définits, alors c'est moi même qui doit choisir un rôle.
-		// Donc je set mon id et pick un role.
-
 		role := a.pickRole()
 		a.pending.data["cmd"] = "applyattribution"
 		a.pending.data["role"] = string(role)
@@ -89,25 +86,13 @@ func (a *App) handleDistributedAction(data map[string]string) {
 		a.myRole = role
 		a.applyAttribution(a.myID, role)
 		if a.checkEveryoneHasRole() {
-			a.transitionToNight()
-			a.pushEvent(map[string]interface{}{
-				"type":    "gameStart",
-				"myRole":  string(a.myRole),
-				"players": a.buildFilteredPlayers(),
-			})
-			a.log.Info("handleDistributedAction", "partie démarrée, rôle local: "+string(a.myRole))
+			a.transitionFromStart()
 		}
 
 	case "applyattribution":
 		a.applyAttribution(data["id"], Role(data["role"]))
 		if a.checkEveryoneHasRole() {
-			a.transitionToNight()
-			a.pushEvent(map[string]interface{}{
-				"type":    "gameStart",
-				"myRole":  string(a.myRole),
-				"players": a.buildFilteredPlayers(),
-			})
-			a.log.Info("handleDistributedAction", "partie démarrée, rôle local: "+string(a.myRole))
+			a.transitionFromStart()
 		}
 
 	default:

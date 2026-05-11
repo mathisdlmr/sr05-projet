@@ -238,11 +238,11 @@ Chaque site maintient un compteur `clock` : incrémenté à l'envoi (`clock++`),
 
 ### Horloge vectorielle
 
-TODO
+Tous les messages sont envoyés avec une estampille basée sur l'horloge de Lamport, utilisée pour la file d'attente répartie, mais aussi avec une estampille vectorielle basée sur une horloge vectorielle et utilisée pour la sauvegarde (capture d'instantanées).
 
 ### Exclusion mutuelle — File d'attente répartie de Lamport
 
-TODO
+La file d'attente répartie a été implémentée au plus proche de l'algorithme indiqué dans le cours, au niveau de la couche **Control** Elle attend un message de l'application (type application, action 'requestCS') pour faire une demande d'entrée en section critique. Une fois entré, le contrôle envoie un mesage (action: ' beginCS') à l'application pour lui indiquer le début de l'action. Puisque nous utilisons les files d'attente pour une seule modification à la fois, l'application répond normalement directement avec un 'endSC' pour terminer la section critique, accompagné dans la data du message à transmettre, de manière à synchroniser l'ensemble des états.
 
 ### Capture d'instantannées
 

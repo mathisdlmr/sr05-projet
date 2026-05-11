@@ -39,6 +39,20 @@ func (a *App) handleFromBrowser(raw string) {
 		a.sendInit()
 		return
 	}
+	// Snapshot : déclencheur depuis un bouton du navigateur. Pas de section critique,
+	// on envoie directement ActionStartSnapshot au Control local.
+	if action.Action == "startSnapshot" {
+		if err := a.io.Send(transport.Message{
+			Type:   transport.TypeApplication,
+			Action: transport.ActionStartSnapshot,
+			Sender: a.siteID,
+		}.String()); err != nil {
+			a.log.Error("handleFromBrowser", "envoi StartSnapshot: "+err.Error())
+			return
+		}
+		a.log.Info("handleFromBrowser", "déclenchement snapshot demandé par le navigateur")
+		return
+	}
 	data := map[string]string{
 		"cmd":   action.Action,
 		"voter": a.myID,

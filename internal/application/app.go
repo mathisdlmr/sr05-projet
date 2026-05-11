@@ -145,6 +145,28 @@ func (a *App) handleFromControl(line string) {
 	}
 
 	switch msg.Action {
+	// Snapshot : le Control nous demande notre état pour la prise d'instantané (algo 11)
+	case transport.ActionSnapshotState:
+		if msg.Data["role"] == "request" {
+			a.handleSnapshotStateRequest()
+		}
+		// Les réponses (role=response) sont émises par nous, pas reçues, donc on ignore.
+		return
+
+	// Snapshot : le Control nous transmet l'EG final pour affichage navigateur
+	case transport.ActionRestoreSnapshot:
+		a.handleSnapshotRestore(msg.Data["eg"])
+		return
+
+	// Snapshot refusé par le Control (un autre est déjà en cours)
+	case transport.ActionSnapshotRejected:
+		a.pushEvent(map[string]interface{}{
+			"type":   "snapshot_rejected",
+			"reason": msg.Data["reason"],
+		})
+		a.log.Warn("handleFromControl", "snapshot refusé : "+msg.Data["reason"])
+		return
+		
 	// Quand on reçoit un BeginCS, ça veut dire que notre demande de section critique a été acceptée,
 	// et qu'on peut appliquer l'action en attente (pending) et envoyer un EndCS
 	case transport.ActionBeginCS:

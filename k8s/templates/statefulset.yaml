@@ -8,6 +8,7 @@ metadata:
 spec:
   serviceName: werewolf-headless
   replicas: {{ .Values.players }}
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: werewolf
@@ -22,6 +23,13 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: werewolf
+              topologyKey: kubernetes.io/hostname
 
       volumes:
         - name: fifos

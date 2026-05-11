@@ -244,9 +244,25 @@ Tous les messages sont envoyés avec une estampille basée sur l'horloge de Lamp
 
 La file d'attente répartie a été implémentée au plus proche de l'algorithme indiqué dans le cours, au niveau de la couche **Control** Elle attend un message de l'application (type application, action 'requestCS') pour faire une demande d'entrée en section critique. Une fois entré, le contrôle envoie un mesage (action: ' beginCS') à l'application pour lui indiquer le début de l'action. Puisque nous utilisons les files d'attente pour une seule modification à la fois, l'application répond normalement directement avec un 'endSC' pour terminer la section critique, accompagné dans la data du message à transmettre, de manière à synchroniser l'ensemble des états.
 
-### Capture d'instantannées
+### Capture d'instantanés
 
-TODO
+L'algorithme implémenté est l'algorithme 11 du chapitre sur la capture d'instantanés (variante Lai-Yang avec lestage, reconstitution de configuration et détection de terminaison). Il se distingue des variantes plus simples (algo 5 / Chandy-Lamport) sur trois points :
+
+- la **reconstitution** collecte chez l'initiateur les états locaux et les messages préposts, donc on obtient un EG réellement utilisable et redistribuable, pas seulement une coloration ;
+- la **détection de terminaison** (`NbÉtatsAttendus == 0 && NbMsgAttendus == 0`) évite tout timeout côté initiateur ;
+- le **lestage** n'exige pas que les canaux applicatifs soient FIFO.
+
+**Datage** : chaque site copie son horloge vectorielle au moment précis de sa bascule rouge. La collection des `vectorClock_i` capturés forme la date globale de l'instantané (un N-vecteur de vecteurs), ce qui ne serait pas possible avec une simple horloge scalaire de Lamport.
+
+**Flot général** (déclenché par un bouton "Sauvegarder" dans le navigateur, qui émet `{action: "startSnapshot"}`) :
+
+1. L'initiateur bascule rouge, capture son état Control (queue, bilan, vectorClock) et demande l'état App via stdio. Pendant le round-trip, les messages entrants sont mis en file et rejoués après (option B du design).
+2. Il envoie un `Wakeup` sur l'anneau pour garantir la propagation de la bascule même sans trafic applicatif (cf. exo 127-128 du poly).
+3. Les non-initiateurs basculent à la première réception d'un message rouge, capturent leur état, envoient un message `[état]` sur l'anneau vers l'initiateur.
+4. Les messages applicatifs reçus blancs alors qu'on est rouge sont détectés comme **préposts** et retransmis à l'initiateur.
+5. Quand l'initiateur a reçu les `N-1` messages `[état]` et compensé les préposts en transit, il diffuse l'EG complet sur l'anneau via `ActionSnapshotComplete`. Chaque site sauvegarde l'EG et le pousse à son App locale qui l'affiche dans le navigateur.
+
+Le code se trouve principalement dans `internal/control/snapshot.go` (algorithme distribué) et `internal/application/snapshot.go` (deep-copy du `GameState` + interface navigateur). Quelques déviations par rapport au cours sont commentées, notamment `bilan += N-1` par envoi pour s'adapter au broadcast via `tee`, et le `bilan--` reporté après le check de bascule pour préserver l'invariant `Σ bilan = nb messages en transit`.
 
 ---
 

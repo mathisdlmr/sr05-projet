@@ -8,7 +8,7 @@ image:
 namespace: werewolf
 
 shared:
-  storageClass: ""
+  storageClass: "local-path"
   accessMode: ReadWriteOnce
   storage: 64Mi
 

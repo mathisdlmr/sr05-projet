@@ -151,7 +151,8 @@ export function useGame(): [GameState, (action: string, extra?: Record<string, s
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    const ws = new WebSocket(`ws://${location.host}/ws`)
+    const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws'
+    const ws = new WebSocket(`${wsProtocol}://${location.host}/ws`)
     wsRef.current = ws
 
     ws.onopen = () => dispatch({ type: 'wsOpen' })

@@ -76,8 +76,9 @@ Le projet porte sur la création d'une application répartie respectant les cont
 │   └── ... # Contient les images utilisées par le README
 ├── internal
 │   ├── application
-│   │   ├── app.go             # Dispatcher central : stdin ↔ control, WebSocket ↔ navigateur
+│   │   ├── app.go             # Dispatcher central : stdin <-> control, WebSocket <-> navigateur
 │   │   ├── browser.go         # Envoi d'événements vers le navigateur (pushEvent, sendInit)
+│   │   ├── game.go            # Gère la logique du jeu : gestion des évènements, gestion de l'état du jeu, etc.
 │   │   ├── roleattribution.go # Attribution aléatoire distribuée des rôles
 │   │   ├── state.go           # Structures de données (GameState, Player, Phase, Role)
 │   │   └── transitions.go     # Transitions de phase (→WITCH, →VOTE, →NIGHT)

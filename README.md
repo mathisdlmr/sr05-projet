@@ -80,10 +80,12 @@ Le projet porte sur la création d'une application répartie respectant les cont
 │   │   ├── browser.go         # Envoi d'événements vers le navigateur (pushEvent, sendInit)
 │   │   ├── game.go            # Gère la logique du jeu : gestion des évènements, gestion de l'état du jeu, etc.
 │   │   ├── roleattribution.go # Attribution aléatoire distribuée des rôles
+│   │   ├── snapshot.go        # Gestion des demandes de snapshot et restoration à partir d'une snapshot
 │   │   ├── state.go           # Structures de données (GameState, Player, Phase, Role)
 │   │   └── transitions.go     # Transitions de phase (→WITCH, →VOTE, →NIGHT)
 │   ├── control
-│   │   └── control.go         # File d'attente Lamport, horloges scalaire et vectorielle, anneau
+│   │   ├── control.go         # File d'attente Lamport, horloges scalaire et vectorielle, anneau
+│   │   └── snapshot.go        # Implémentation des snapshots réalisées dans notre système
 │   └── server
 │       └── server.go          # Serveur HTTP + WebSocket (gorilla/websocket)
 ├── pkg
@@ -237,6 +239,10 @@ Chaque site maintient un compteur `clock` : incrémenté à l'envoi (`clock++`),
 TODO
 
 ### Exclusion mutuelle — File d'attente répartie de Lamport
+
+TODO
+
+### Capture d'instantannées
 
 TODO
 

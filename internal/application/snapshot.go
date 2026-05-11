@@ -1,5 +1,4 @@
 // Côté application : gère les messages snapshot venant du Control local.
-// Référence : docs/snapshot-design.md § "Bridge côté App".
 
 package application
 

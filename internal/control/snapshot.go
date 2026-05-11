@@ -1,6 +1,5 @@
 // Algorithme 11 d'instantané (Lai-Yang avec reconstitution + terminaison)
 // Référence : docs/cours/poly-instantanes.pdf chapitre 6, Algorithme 11.
-// Conception : docs/snapshot-design.md.
 //
 // Ce fichier regroupe :
 //   - les types EG, SiteState, ControlSnapshot
@@ -319,13 +318,13 @@ func (c *Control) broadcastSnapshotComplete() {
 }
 
 // sendPrepost gère un message reçu blanc alors qu'on est rouge.
-// - Si on n'est pas l'initiateur : on emballe dans un ActionPrepost et on envoie
-//   sur l'anneau vers l'initiateur.
-// - Si on EST l'initiateur : on traite localement (raccourci). Sinon le message
-//   ferait le tour et reviendrait à nous, mais serait droppé par le self-detect
-//   au top de handleControlMessage avant d'atteindre handleSnapshotPrepost,
-//   ce qui causerait un deadlock (nbMsgAttendus ne décrémenterait pas pour
-//   nos propres préposts).
+//   - Si on n'est pas l'initiateur : on emballe dans un ActionPrepost et on envoie
+//     sur l'anneau vers l'initiateur.
+//   - Si on EST l'initiateur : on traite localement (raccourci). Sinon le message
+//     ferait le tour et reviendrait à nous, mais serait droppé par le self-detect
+//     au top de handleControlMessage avant d'atteindre handleSnapshotPrepost,
+//     ce qui causerait un deadlock (nbMsgAttendus ne décrémenterait pas pour
+//     nos propres préposts).
 func (c *Control) sendPrepost(originalMsg *transport.Message) {
 	if c.initiateur {
 		if c.EG == nil {

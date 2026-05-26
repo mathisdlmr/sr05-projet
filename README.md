@@ -70,8 +70,10 @@ Le projet porte sur la création d'une application répartie respectant les cont
 ├── cmd
 │   ├── application
 │   │   └── main.go # Lance l'application (internal/application/app.go) qui embarque le server (internal/server/server.go) maintenant la WebSocket avec le frontend
-│   └── control
-│       └── main.go # Lance le centre de contrôle (internal/control/control.go) qui communique dans notre système réparti
+│   ├── control
+│   │   └── main.go # Lance le centre de contrôle (internal/control/control.go) qui communique dans notre système réparti
+│   └── net
+│       └── main.go # Lance le centre de contrôle (internal/net/net.go) qui permet de gérer le réseau de notre système réparti
 ├── docs
 │   └── ... # Contient les images utilisées par le README
 ├── internal
@@ -88,6 +90,8 @@ Le projet porte sur la création d'une application répartie respectant les cont
 │   │   ├── criticalsection.go # Gestion des sections critiques (demande de SC, Acknowledge, fin de SC)
 │   │   ├── handlers.go        # Handlers pour gérer les requêtes de l'application locale et des controler des autres sites
 │   │   └── snapshot.go        # Implémentation des snapshots réalisées dans notre système
+│   ├── net
+│   │   └── net.go             # Permet de gérer un réseau dynamique pour notre système réparti
 │   └── server
 │       └── server.go          # Serveur HTTP + WebSocket (gorilla/websocket)
 ├── pkg

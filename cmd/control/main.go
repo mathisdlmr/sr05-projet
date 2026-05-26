@@ -1,4 +1,4 @@
-// Binaire control : S'occupe de la communication entre nos sites, comment partager l'état du jeu, etc.
+// Binaire control : Permet de gérer la communication entre les différents sites de sorte à ce que le système réparti reste cohérent
 //
 // Lancement :
 //  ./control -id J1 -sites 5 -n control_J1

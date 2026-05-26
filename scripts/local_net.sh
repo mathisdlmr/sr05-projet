@@ -21,6 +21,10 @@ BASE_PORT=${1:-4444}
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+CMD_PIPE=/tmp/net_cmd
+rm -f $CMD_PIPE
+mkfifo $CMD_PIPE
+
 for bin in application control net; do
     if [[ ! -x "./bin/$bin" ]]; then
         echo "Binaire manquant : ./bin/$bin"
@@ -40,6 +44,41 @@ nettoyer() {
     exit 0
 }
 trap nettoyer INT QUIT TERM
+
+add_link() {
+	src=$1
+	dst=$2
+
+	cat "/tmp/out_net$src" | tee "/tmp/in_net$dst" > /dev/null &
+	echo $! > /tmp/link_${src}_${dst}.pid
+
+	echo "[ADD] $src -> $dst"
+}
+
+remove_link() {
+	src=$1
+	dst=$2
+
+	file="/tmp/link_${src}_${dst}.pid" # TODO : faut encore réfléchir à un moyen propre de sauvegarder les PID des proc tee pour pouvoir les kill si besoin
+
+	if [ -f "$file" ]; then
+		pid=$(cat "$file")
+		kill $pid 2>/dev/null
+		rm "$file"
+	fi
+
+	echo "[DEL] $src -> $dst"
+}
+
+process_commands() {
+  while read -r cmd a b; do
+    case "$cmd" in
+		ADD) add_link $a $b ;;
+		DEL) remove_link $a $b ;;
+		*) echo "[WARN] unknown command: $cmd" ;;
+    esac
+  done < $CMD_PIPE
+}
 
 # Pour chaque site, on créé 3 fifos (in et out) pour l'app, le contrôle et le réseau ("net")
 for i in $(seq 1 $NB_SITES); do
@@ -68,6 +107,9 @@ for i in $(seq 1 $NB_SITES); do
 	tee /tmp/in_app$i < /tmp/out_ctl$i > /tmp/in_net$i &
 	tee /tmp/in_ctl$i < /tmp/out_net$i > /tmp/in_net$NEXT_SITE &
 done
+
+process_commands &
+CMD_PID=$!
 
 echo "URLs :"
 for i in $(seq 1 $NB_SITES); do

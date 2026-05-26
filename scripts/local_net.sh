@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 #
 # Script pour faire tourner notre système réparti en local
-# Topologie : anneau de N=NB_SITES contrôles, chaque site embarque
-# son application (avec serveur web intégré depuis la fusion app+server).
+# Topologie : anneau de N=NB_SITES, chaque site embarque un binaire de gestion du
+#             réseau (net), un controller, et une application (avec serveur web intégré).
 #
 # Pipeline pour chaque site i :
 #   browser <--WS--> application_i (embarque le serveur HTTP/WS)
 #   application_i  --stdout-->  control_i  (FIFO out_app_i -> in_ctl_i)
-#   control_i      --stdout-->  application_i (local)  +  control_{i+1} (anneau)
+#   control_i      --stdout-->  application_i (local)  +  net_i (local)
+#   net_i          --stdout-->  control_i + net_{i+1} (pour faire l'anneau)
 
 NB_SITES=3
 BASE_PORT=${1:-4444}
@@ -16,7 +17,7 @@ BASE_PORT=${1:-4444}
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-for bin in application control; do
+for bin in application control net; do
   if [[ ! -x "./bin/$bin" ]]; then
     echo "Binaire manquant : ./bin/$bin"
     echo "Compilez avec 'make build'"
@@ -35,11 +36,12 @@ nettoyer() {
 }
 trap nettoyer INT QUIT TERM
 
-# Pour chaque site, on créé 2 fifos (in et out) pour l'app et le contrôle
+# Pour chaque site, on créé 3 fifos (in et out) pour l'app, le contrôle et le réseau
 for i in $(seq 1 $NB_SITES); do
-  rm -f /tmp/in_app$i /tmp/out_app$i /tmp/in_ctl$i /tmp/out_ctl$i
+  rm -f /tmp/in_app$i /tmp/out_app$i /tmp/in_ctl$i /tmp/out_ctl$i /tmp/in_net$i /tmp/out_net$i
   mkfifo /tmp/in_app$i  /tmp/out_app$i
   mkfifo /tmp/in_ctl$i  /tmp/out_ctl$i
+  mkfifo /tmp/in_net$i  /tmp/out_net$i
 done
 
 # Lancement des processus
@@ -50,15 +52,18 @@ for i in $(seq 1 $NB_SITES); do
     < /tmp/in_app$i > /tmp/out_app$i &
   ./bin/control -n "ctl$i" -id "$i" -sites "$NB_SITES" \
     < /tmp/in_ctl$i > /tmp/out_ctl$i &
+  ./bin/net < /tmp/in_net$i > /tmp/out_net$i &
 done
 
 # Connexions :
 #   out_app_i  ->  in_ctl_i                      (app -> contrôle local)
-#   out_ctl_i  ->  in_app_i  +  in_ctl_{i+1}     (contrôle -> app local + anneau)
+#   out_ctl_i  ->  in_app_i + in_net_i           (contrôle -> app local + réseau local)
+#   out_net_i  ->  in_ctl_i  +  in_net_{i+1}     (réseau -> contrôle local + anneau)
 for i in $(seq 1 $NB_SITES); do
   NEXT_SITE=$(( (i % NB_SITES) + 1 ))
   cat /tmp/out_app$i > /tmp/in_ctl$i &
-  tee /tmp/in_app$i < /tmp/out_ctl$i > /tmp/in_ctl$NEXT_SITE &
+  tee /tmp/in_app$i < /tmp/out_ctl$i > /tmp/in_net$i &
+  tee /tmp/in_ctl$i < /tmp/out_net$i > /tmp/in_net$NEXT_SITE &
 done
 
 echo "URLs :"

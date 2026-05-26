@@ -8,6 +8,7 @@ build-go:
 	@mkdir -p bin
 	go build -o bin/application ./cmd/application
 	go build -o bin/control ./cmd/control
+	go build -o bin/net ./cmd/net
 	@echo "Binaires Go compilés dans bin/"
 
 build-frontend:
@@ -18,8 +19,13 @@ dev-frontend:
 	@cd frontend && npm run dev
 
 run: build
-	@chmod +x scripts/local.sh
-	./scripts/local.sh 4444
+	@chmod +x scripts/local_net.sh
+	./scripts/local_net.sh 4444
+
+run-ctl: 
+	build
+	@chmod +x scripts/local_ctl.sh
+	./scripts/local_ctl.sh 4444
 
 check:
 	go vet ./cmd/... ./internal/... ./pkg/...

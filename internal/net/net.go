@@ -6,11 +6,13 @@ import (
 )
 
 type Net struct {
+	myID    int
 	// TODO
 }
 
-func New(io *transport.IO, log *logger.Logger) *Net {
+func New(myID int, io *transport.IO, log *logger.Logger) *Net {
 	return &Net{
+		myID: myID,
 		// TODO
 	}
 }

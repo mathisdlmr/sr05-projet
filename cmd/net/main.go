@@ -12,8 +12,12 @@ import (
 )
 
 func main() {
+	id := flag.Int("id", 1, "identifiant de ce site (ex: J1)")
+	name := flag.String("n", "net", "nom du processus (pour les logs)")
+	flag.Parse()
+
 	log := logger.New(*name)
 	io := transport.NewIO()
-	net := net.New(io, log)
+	net := net.New(*id, io, log)
 	net.Run()
 }

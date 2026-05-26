@@ -1,0 +1,23 @@
+{
+  "mentor": "Mentor",
+  "mentor_plural": "Mentors",
+  "jury": "Jury",
+  "company": "Company",
+  "semester": "Semester",
+  "author": "Author",
+  "author_plural": "Authors",
+  "academic_year": "Academic year",
+
+  "figures_table": "Table of figures",
+  "tables_table": "Table of tables",
+  "school_name": "University of Technology\nof Compiègne (UTC)",
+  "school_mentor": "Internship supervisor",
+  "company_mentor": "Company supervisor",
+
+  "chapter": "Chapter",
+  "summary": "Summary",
+  "defended_on_pre_date": "Defended on",
+  "defended_on_post_date": "in front of the jury composed of",
+  "appendix": "Appendix",
+  "appendix_outline_title": "Table of appendices"
+}

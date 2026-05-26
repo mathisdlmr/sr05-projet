@@ -1,0 +1,23 @@
+{
+  "mentor": "Encadrant",
+  "mentor_plural": "Encadrants",
+  "jury": "Jury",
+  "company": "Entreprise",
+  "semester": "Semestre",
+  "author": "Étudiant",
+  "author_plural": "Auteurs",
+  "academic_year": "Année universitaire",
+
+  "figures_table": "Table des figures",
+  "tables_table": "Table des tableaux",
+  "school_name": "Université de Technologie\nde Compiègne (UTC)",
+  "school_mentor": "Suiveur de stage",
+  "company_mentor": "Responsable entreprise",
+
+  "chapter": "Chapitre",
+  "summary": "Sommaire",
+  "defended_on_pre_date": "Soutenu le",
+  "defended_on_post_date": "devant le jury composé de",
+  "appendix": "Annexe",
+  "appendix_outline_title": "Table des annexes"
+}

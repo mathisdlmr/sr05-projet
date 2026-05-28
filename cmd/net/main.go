@@ -6,6 +6,8 @@
 package main
 
 import (
+	"flag"
+
 	"github.com/sr05-projet/internal/net"
 	"github.com/sr05-projet/pkg/logger"
 	"github.com/sr05-projet/pkg/transport"

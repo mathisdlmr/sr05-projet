@@ -1,1 +1,0 @@
-./prog -n A | ./prog -n B

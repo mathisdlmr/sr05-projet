@@ -1,8 +1,8 @@
 #import "lib/lib.typ": project, start-appendix
 
 #show: project.with(
-    title: "Projet de SR05 (Systèmes et Algorithmes Répartis)",
-    subtitle: "Le jeu du loup-garou, mais distribué",
+    title: "Étude portant sur l'ajout d'un mécanisme de gestion des participants",
+    subtitle: "Implémentation d'un loup-garou distribué",
     authors: (
         "Mathis DELMAERE",
         "Eliott THOMANN",

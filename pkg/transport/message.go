@@ -52,6 +52,7 @@ type MessageType string
 const (
 	TypeControl     MessageType = "control"
 	TypeApplication MessageType = "application"
+	TypeNet         MessageType = "net"
 )
 
 type Action string
@@ -88,6 +89,13 @@ const (
 	// bilan : son handler déclenche la bascule directement, sinon le bilan
 	// ne s'équilibre plus entre snapshots successifs.
 	ActionWakeup Action = "wakeup"
+
+	// Net
+	ActionAddMeToNet        Action = "AddMeToNet"        // Contient l'id du nouveau site
+	ActionConnectToYourNext Action = "connectToYourNext" // Contient l'id du next
+
+	ActionElection         Action = "election" // Continent l'id du nouveau site
+	ActionElectionTerminee Action = "electionTerminee"
 )
 
 // Message représente un type de message avec horodatage, expéditeur et des données structurées.

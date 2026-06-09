@@ -1,0 +1,21 @@
+name: Build typst file
+
+on:
+  push:
+    paths:
+      - "**.typ"
+
+jobs:
+  build_typst:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compile Typst files
+        uses: HackingGate/typst-out@v3.0.0
+        with:
+          typst_version: latest
+          retention_days: 7
+          artifacts_name: rapport
+          template_file: main.typ

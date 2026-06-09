@@ -182,18 +182,8 @@ func (c *Control) replayPending() {
 		return
 	}
 	c.log.Info("replayPending", fmt.Sprintf("rejeu de %d message(s)", len(queue)))
-	for _, line := range queue {
-		msg, err := transport.ParseMessage(line)
-		if err != nil {
-			c.log.Error("replayPending", "parse: "+err.Error())
-			continue
-		}
-		switch msg.Type {
-		case transport.TypeApplication:
-			c.handleApplicationMessage(msg)
-		case transport.TypeControl:
-			c.handleControlMessage(msg)
-		}
+	for _, msg := range queue {
+		c.HandleMessage(msg)
 	}
 }
 

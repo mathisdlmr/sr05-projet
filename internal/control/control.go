@@ -2,7 +2,6 @@ package control
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/sr05-projet/pkg/logger"
 	"github.com/sr05-projet/pkg/transport"
@@ -35,15 +34,15 @@ type Control struct {
 	queue map[int]queueEntry
 
 	// Variables de l'algo 11 d'instantané (Lai-Yang avec reconstitution)
-	couleur            string           // ColorWhite par défaut, ColorRed après bascule
-	initiateur         bool             // vrai sur le site qui a déclenché le snapshot
-	bilan              int              // nb_emissions - nb_receptions de messages applicatifs
-	nbEtatsAttendus    int              // utilisé chez l'initiateur uniquement
-	nbMsgAttendus      int              // utilisé chez l'initiateur uniquement
-	snapshotPending    bool             // vrai pendant l'attente de réponse SnapshotState de l'App
-	pendingQueue       []string         // lignes stdin mises de côté pendant le freeze
-	pendingControlSnap *ControlSnapshot // snapshot du Control figé à la bascule, en attente de l'app state
-	EG                 *EG              // état global collecté (initiateur) ou reçu (autres)
+	couleur            string               // ColorWhite par défaut, ColorRed après bascule
+	initiateur         bool                 // vrai sur le site qui a déclenché le snapshot
+	bilan              int                  // nb_emissions - nb_receptions de messages applicatifs
+	nbEtatsAttendus    int                  // utilisé chez l'initiateur uniquement
+	nbMsgAttendus      int                  // utilisé chez l'initiateur uniquement
+	snapshotPending    bool                 // vrai pendant l'attente de réponse SnapshotState de l'App
+	pendingQueue       []*transport.Message // messages mis de côté pendant le freeze
+	pendingControlSnap *ControlSnapshot     // snapshot du Control figé à la bascule, en attente de l'app state
+	EG                 *EG                  // état global collecté (initiateur) ou reçu (autres)
 }
 
 func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
@@ -75,23 +74,39 @@ func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
 	}
 }
 
+func (c *Control) HandleMessage(msg *transport.Message) {
+
+	// Gestion des messages selon le type :
+	switch msg.Type {
+	case transport.TypeApplication: // message de l'application locale
+		c.handleApplicationMessage(msg)
+	case transport.TypeControl: // message de contrôle d'un autre site
+		c.handleControlMessage(msg)
+	default:
+		c.log.Warn("Run", fmt.Sprintf("message avec type inconnu: type=%s data=%v", msg.Type, msg.Data))
+	}
+}
+
+func (c *Control) ReadNextMessage() (*transport.Message, error) {
+	line, err := c.io.ReadLine()
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := transport.ParseMessage(line)
+	if err != nil {
+		return nil, fmt.Errorf("parse message: %w", err)
+	}
+
+	return msg, nil
+}
+
 func (c *Control) Run() {
 	c.log.Info("Run", fmt.Sprintf("démarrage controle id=%d nbSites=%d", c.myID, c.nbSites))
 	for {
-		line, err := c.io.ReadLine()
-		if err == io.EOF {
-			c.log.Info("Run", "stdin fermé, arrêt")
-			return
-		}
+		msg, err := c.ReadNextMessage()
 		if err != nil {
-			c.log.Error("Run", "lecture stdin: "+err.Error())
-			return
-		}
-
-		// parse message
-		msg, err := transport.ParseMessage(line)
-		if err != nil {
-			c.log.Error("Run", "parse message: "+err.Error())
+			c.log.Error("Run", "lecture message: "+err.Error())
 			continue
 		}
 
@@ -104,21 +119,13 @@ func (c *Control) Run() {
 				msg.Data["role"] == "response" &&
 				msg.Sender == c.myID {
 				c.handleSnapshotStateResponse(msg)
-				continue
+				return
 			}
-			c.pendingQueue = append(c.pendingQueue, line)
-			continue
+			c.pendingQueue = append(c.pendingQueue, msg)
+			return
 		}
 
-		// Gestion des messages selon le type :
-		switch msg.Type {
-		case transport.TypeApplication: // message de l'application locale
-			c.handleApplicationMessage(msg)
-		case transport.TypeControl: // message de contrôle d'un autre site
-			c.handleControlMessage(msg)
-		default:
-			c.log.Warn("Run", fmt.Sprintf("message avec type inconnu: type=%s data=%v", msg.Type, msg.Data))
-		}
+		c.HandleMessage(msg)
 	}
 }
 

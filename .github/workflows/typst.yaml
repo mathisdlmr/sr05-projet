@@ -5,18 +5,31 @@ on:
   push:
     paths:
       - "**.typ"
+      - ".github/workflows/typst.yaml"
 
 jobs:
-  build_typst:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Compile Typst files
-        uses: HackingGate/typst-out@v3.0.0
+      - uses: actions/checkout@v4
+      - name: Install Typst
+        uses: typst-community/setup-typst@v4
         with:
-          typst_version: latest
-          retention_days: 7
-          artifacts_name: rapport
-          template_file: main.typ
+          typst-version: latest
+      - name: Cache Typst packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/typst
+          key: typst-cache-${{ runner.os }}-${{ hashFiles('rapport/**/*.typ') }}
+          restore-keys: |
+            typst-cache-${{ runner.os }}-
+      - name: Compile report
+        run: |
+          mkdir -p build
+          typst compile rapport/main.typ build/rapport.pdf
+      - name: Upload PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-pdf
+          path: build/rapport.pdf
+          retention-days: 7

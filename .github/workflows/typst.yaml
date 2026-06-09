@@ -1,6 +1,7 @@
 name: Build typst file
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - "**.typ"

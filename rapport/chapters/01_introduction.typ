@@ -20,7 +20,8 @@ La question posée par l'étude est la suivante : *comment faire en sorte que la
 
 === Première idée : la topologie gérée par le script de lancement
 
-Dans cette première approche, c'est le script qui forme et maintient l'anneau qui prend en charge l'évolution du réseau. Chaque sortie de site est routée par un processus `tee` lancé par le script ; en parallèle, le script intercepte tous les messages qui transitent (via un canal de commande dédié) et y détecte les demandes de modification de topologie au format :
+La première approche que nous pensions exploiter se base sur le script #link("https://moodle.utc.fr/mod/page/view.php?id=179855")[dynamich.sh sur Moodle] : c'est le même script qui créé le réseau (avec des `tee`) et qui se charge de son évolution (en manipulant les processus `tee`).
+Notre approche pour utiliser cette méthode était que chaque message transitant dans le réseau serait également envoyé à notre script en charge du réseau. Le script ayant créé le réseau pourrait alors parser tous les messages pour y détecter des demandes de modification de topologie au format :
 
 ```
 /=type=net/=action=addLink/=sender=<i>/=target=<j>
@@ -28,6 +29,7 @@ Dans cette première approche, c'est le script qui forme et maintient l'anneau q
 ```
 
 À la réception d'un tel message, le script met à jour la liste des destinations du site concerné puis relance le `tee` correspondant. L'ajout ou le retrait d'un participant se ramène alors à quelques messages `addLink` / `removeLink` que le script applique lui-même.
+Pour mieux visualiser cette approche, le script initialement imaginé est toujours disponible dans le projet, dans #link("../scripts/local_net.sh")[scripts/local_net.sh]
 
 // TODO : insérer un schéma illustrant le routage centralisé par le script
 //        (tee pilotés par le script via le canal de commande).

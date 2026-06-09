@@ -30,6 +30,6 @@ jobs:
       - name: Upload PDF
         uses: actions/upload-artifact@v4
         with:
-          name: rapport-pdf
+          name: rapport-sr05
           path: build/rapport.pdf
           retention-days: 7

@@ -19,11 +19,11 @@ func (c *Control) updateClock(msg *transport.Message) {
 }
 
 // updateVectorClock - recale l'horloge vectorielle lors de la récéption de message : Vi <- Max(Vi, Vm) + 1
-func (c *Control) updateVectorClock(vec []int) {
+func (c *Control) updateVectorClock(vc map[int]int) {
 	// Vi <- Max(Vi, Vm) + 1
-	for i := 0; i < len(vec); i++ {
-		if vec[i] > c.vectorClock[i] {
-			c.vectorClock[i] = vec[i]
+	for k, v := range vc {
+		if v > c.vectorClock[k] {
+			c.vectorClock[k] = v
 		}
 	}
 	c.vectorClock[c.myID]++

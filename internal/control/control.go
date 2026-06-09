@@ -29,10 +29,10 @@ type Control struct {
 	log     *logger.Logger
 
 	clock       int
-	vectorClock []int
+	vectorClock map[int]int
 	// file d'attente section critique
-	// tableau de taille nbSites qui contient des
-	queue []queueEntry
+	// map d'ID du site vers son état en SC
+	queue map[int]queueEntry
 
 	// Variables de l'algo 11 d'instantané (Lai-Yang avec reconstitution)
 	couleur            string           // ColorWhite par défaut, ColorRed après bascule
@@ -48,7 +48,8 @@ type Control struct {
 
 func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
 
-	queue := make([]queueEntry, nbSites+1)
+	// initialisation de la file d'attente (map d'ID du site vers son état en SC)
+	queue := make(map[int]queueEntry)
 	for i := 1; i <= nbSites; i++ {
 		queue[i] = queueEntry{
 			Status:    statusRelease,
@@ -56,8 +57,8 @@ func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
 		}
 	}
 
-	// initialisation de l'horloge vectorielle
-	vectorClock := make([]int, nbSites+1)
+	// initialisation de l'horloge vectorielle (map d'ID du site vers sa valeur)
+	vectorClock := make(map[int]int)
 	for i := 1; i <= nbSites; i++ {
 		vectorClock[i] = 0
 	}
@@ -162,10 +163,46 @@ func (c *Control) sendMessage(m transport.Message) {
 	ts := c.clock
 	m.Timestamp = &ts
 
-	vc := make([]int, len(c.vectorClock))
-	copy(vc, c.vectorClock)
+	// Copier la map vectorClock directement
+	vc := make(map[int]int, len(c.vectorClock))
+	for k, v := range c.vectorClock {
+		vc[k] = v
+	}
 	m.VectorClock = vc
 
 	m.Sender = c.myID
 	c.io.Send(m.String())
+}
+
+// Ajout d'un nouveau site
+// On suppose qu'on ajoutera toujours un site avec un id plus elevé
+func (c *Control) AddSite(id int) {
+	// Si le site n'est pas encore dans la map, l'ajouter
+	if _, ok := c.vectorClock[id]; !ok {
+		c.vectorClock[id] = 0
+		c.queue[id] = queueEntry{
+			Status:    statusRelease,
+			Timestamp: 0,
+		}
+	}
+	c.nbSites++
+}
+
+// Retrait d'un site
+func (c *Control) RemoveSite(id int) {
+	if id <= 0 {
+		return // invalide
+	}
+
+	// clear sa case de la queue - mettre en released
+	delete(c.queue, id)
+
+	// mettre sa case de vector clock à -1 pour indiquer qu'elle n'est plus active
+	c.vectorClock[id] = -1
+
+	// on retire la case de la map pour cleaner, et on compense dans le comptage
+	delete(c.vectorClock, id)
+
+	// on compense juste dans le comptage du nombre de sites.
+	c.nbSites--
 }

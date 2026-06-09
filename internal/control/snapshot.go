@@ -20,9 +20,9 @@ import (
 
 // ControlSnapshot capture l'état du Control au moment de la bascule.
 type ControlSnapshot struct {
-	Queue       []queueEntry `json:"queue"`
-	Bilan       int          `json:"bilan"`
-	VectorClock []int        `json:"vectorClock"`
+	Queue       map[int]queueEntry `json:"queue"`
+	Bilan       int                `json:"bilan"`
+	VectorClock map[int]int        `json:"vectorClock"`
 }
 
 // SiteState représente l'état complet d'un site (Control + App + horloge)
@@ -30,7 +30,7 @@ type ControlSnapshot struct {
 type SiteState struct {
 	ControlState ControlSnapshot `json:"controlState"`
 	AppState     string          `json:"appState"` // JSON sérialisé du GameState (opaque côté Control)
-	VectorClock  []int           `json:"vectorClock"`
+	VectorClock  map[int]int     `json:"vectorClock"`
 }
 
 // EG (État Global) est la structure collectée par l'initiateur de l'algo 11
@@ -50,10 +50,16 @@ func newEG() *EG {
 // snapshotControlState deep-copie l'état du Control au moment t.
 // Appelé à la bascule pour figer ce qu'on capture (queue, bilan, vectorClock).
 func (c *Control) snapshotControlState() ControlSnapshot {
-	q := make([]queueEntry, len(c.queue))
-	copy(q, c.queue)
-	vc := make([]int, len(c.vectorClock))
-	copy(vc, c.vectorClock)
+	// deep copy de la map queue
+	q := make(map[int]queueEntry, len(c.queue))
+	for k, v := range c.queue {
+		q[k] = v
+	}
+	// deep copy de la map vectorClock
+	vc := make(map[int]int, len(c.vectorClock))
+	for k, v := range c.vectorClock {
+		vc[k] = v
+	}
 	return ControlSnapshot{
 		Queue:       q,
 		Bilan:       c.bilan,

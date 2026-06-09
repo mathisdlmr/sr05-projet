@@ -103,8 +103,8 @@ type Message struct {
 	Type        MessageType // type de message : control (d'un site à l'autre) ou application (de l'application locale au contrôle)
 	Action      Action      // champs dédié pour communiquer l'action : enterCS, endCS, startSauvegarde
 	Timestamp   *int
-	VectorClock []int
-	Color       string // lestage Lai-Yang : "" si non-applicatif, ColorWhite ou ColorRed sinon
+	VectorClock map[int]int // horloge vectorielle : map d'ID du site vers sa valeur
+	Color       string      // lestage Lai-Yang : "" si non-applicatif, ColorWhite ou ColorRed sinon
 	Sender      int
 	Data        map[string]string
 }
@@ -123,7 +123,7 @@ func ParseMessage(msg string) (*Message, error) {
 	sender := 0
 	msgType := MessageType("")
 	var msgAction Action
-	var msgVectorClock []int
+	var msgVectorClock map[int]int
 	color := ""
 	data := make(map[string]string)
 
@@ -144,11 +144,18 @@ func ParseMessage(msg string) (*Message, error) {
 					timestamp = &parsed
 				}
 			case "vectorClock":
+				// Parse vectorClock comme map: clé1,valeur1;clé2,valeur2;...
 				if parts[1] != "" {
-					strs := strings.Split(parts[1], ",")
-					for _, s := range strs {
-						if v, err := strconv.Atoi(s); err == nil {
-							msgVectorClock = append(msgVectorClock, v)
+					msgVectorClock = make(map[int]int)
+					pairs := strings.Split(parts[1], ";")
+					for _, pair := range pairs {
+						kv := strings.SplitN(pair, ":", 2)
+						if len(kv) == 2 {
+							if k, err := strconv.Atoi(strings.TrimSpace(kv[0])); err == nil {
+								if v, err := strconv.Atoi(strings.TrimSpace(kv[1])); err == nil {
+									msgVectorClock[k] = v
+								}
+							}
 						}
 					}
 				}
@@ -186,12 +193,13 @@ func (m Message) String() string {
 	if m.Timestamp != nil {
 		builder.WriteString(fmt.Sprintf("%s%stimestamp%s%d", field, kv, kv, *m.Timestamp))
 	}
+	// Sérialiser vectorClock map comme clé:valeur;clé:valeur
 	if len(m.VectorClock) > 0 {
-		strs := make([]string, len(m.VectorClock))
-		for i, v := range m.VectorClock {
-			strs[i] = strconv.Itoa(v)
+		parts := make([]string, 0, len(m.VectorClock))
+		for k, v := range m.VectorClock {
+			parts = append(parts, strconv.Itoa(k)+":"+strconv.Itoa(v))
 		}
-		builder.WriteString(fmt.Sprintf("%s%svectorClock%s%s", field, kv, kv, strings.Join(strs, ",")))
+		builder.WriteString(fmt.Sprintf("%s%svectorClock%s%s", field, kv, kv, strings.Join(parts, ";")))
 	}
 	if m.Color != "" {
 		builder.WriteString(fmt.Sprintf("%s%scolor%s%s", field, kv, kv, m.Color))

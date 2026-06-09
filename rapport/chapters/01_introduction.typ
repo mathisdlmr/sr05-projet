@@ -36,6 +36,12 @@ Pour mieux visualiser cette approche, le script initialement imaginé est toujou
   caption: [Schématisation de la première architecture imaginée],
 )
 
+#figure(
+  image("../assets/local_net_algorithm.png", width: 80%),
+  caption: [Schématisation du fonctionnement de local_net.sh],
+)
+
+
 Cette solution a le mérite d'être simple, mais elle présente un défaut rédhibitoire : *le réseau n'est plus du tout décentralisé*. Une entité centrale (le script) observe l'intégralité du trafic et détient seule le pouvoir de reconfigurer la topologie. Cela contredit directement l'esprit du projet, où le contrôle est réparti entre les sites.
 
 === Seconde idée : chaque site gère lui-même ses liens

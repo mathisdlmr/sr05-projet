@@ -31,8 +31,10 @@ Notre approche pour utiliser cette méthode était que chaque message transitant
 À la réception d'un tel message, le script met à jour la liste des destinations du site concerné puis relance le `tee` correspondant. L'ajout ou le retrait d'un participant se ramène alors à quelques messages `addLink` / `removeLink` que le script applique lui-même.
 Pour mieux visualiser cette approche, le script initialement imaginé est toujours disponible dans le projet, dans #link("../scripts/local_net.sh")[scripts/local_net.sh]
 
-// TODO : insérer un schéma illustrant le routage centralisé par le script
-//        (tee pilotés par le script via le canal de commande).
+#figure(
+  image("../assets/local_net.png", width: 80%),
+  caption: [Schématisation de la première architecture imaginée],
+)
 
 Cette solution a le mérite d'être simple, mais elle présente un défaut rédhibitoire : *le réseau n'est plus du tout décentralisé*. Une entité centrale (le script) observe l'intégralité du trafic et détient seule le pouvoir de reconfigurer la topologie. Cela contredit directement l'esprit du projet, où le contrôle est réparti entre les sites.
 

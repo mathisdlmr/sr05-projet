@@ -23,11 +23,12 @@ type queueEntry struct {
 }
 
 type Control struct {
-	myID        int
-	nbSites     int
-	io          *transport.IO
-	log         *logger.Logger
-	initialized bool
+	myID                        int
+	nbSites                     int
+	io                          *transport.IO
+	log                         *logger.Logger
+	initialized                 bool
+	awaitingInitSnapshotForSite int
 
 	clock         int
 	vectorClock   map[int]int // horloge vectorielle
@@ -38,15 +39,15 @@ type Control struct {
 	queue map[int]queueEntry
 
 	// Variables de l'algo 11 d'instantané (Lai-Yang avec reconstitution)
-	couleur            string               // ColorWhite par défaut, ColorRed après bascule
-	initiateur         bool                 // vrai sur le site qui a déclenché le snapshot
-	bilan              int                  // nb_emissions - nb_receptions de messages applicatifs
-	nbEtatsAttendus    int                  // utilisé chez l'initiateur uniquement
-	nbMsgAttendus      int                  // utilisé chez l'initiateur uniquement
-	snapshotPending    bool                 // vrai pendant l'attente de réponse SnapshotState de l'App
-	pendingQueue       []*transport.Message // messages mis de côté pendant le freeze
-	pendingControlSnap *ControlSnapshot     // snapshot du Control figé à la bascule, en attente de l'app state
-	EG                 *EG                  // état global collecté (initiateur) ou reçu (autres)
+	couleur               string               // ColorWhite par défaut, ColorRed après bascule
+	initiateur            bool                 // vrai sur le site qui a déclenché le snapshot
+	bilan                 int                  // nb_emissions - nb_receptions de messages applicatifs
+	nbEtatsAttendus       int                  // utilisé chez l'initiateur uniquement
+	nbMsgAttendus         int                  // utilisé chez l'initiateur uniquement
+	globalSnapshotPending bool                 // vrai pendant l'attente de réponse SnapshotState de l'App
+	pendingQueue          []*transport.Message // messages mis de côté pendant le freeze
+	pendingControlSnap    *ControlSnapshot     // snapshot du Control figé à la bascule, en attente de l'app state
+	EG                    *EG                  // état global collecté (initiateur) ou reçu (autres)
 }
 
 func New(myID int, nbSites int, initiateur bool, io *transport.IO, log *logger.Logger) *Control {
@@ -67,15 +68,16 @@ func New(myID int, nbSites int, initiateur bool, io *transport.IO, log *logger.L
 	}
 
 	return &Control{
-		myID:        myID,
-		nbSites:     nbSites,
-		io:          io,
-		log:         log,
-		clock:       0,
-		vectorClock: vectorClock,
-		queue:       queue,
-		couleur:     transport.ColorWhite,
-		initialized: initiateur,
+		myID:                        myID,
+		nbSites:                     nbSites,
+		io:                          io,
+		log:                         log,
+		clock:                       0,
+		vectorClock:                 vectorClock,
+		queue:                       queue,
+		couleur:                     transport.ColorWhite,
+		initialized:                 initiateur,
+		awaitingInitSnapshotForSite: -1,
 	}
 }
 
@@ -199,7 +201,7 @@ func (c *Control) Run() {
 		// Pendant le freeze de l'instantané on n'accepte que la réponse de
 		// l'App à notre requête ActionSnapshotState. Le reste va en file
 		// d'attente, rejoué après la bascule.
-		if c.snapshotPending {
+		if c.globalSnapshotPending {
 			if msg.Type == transport.TypeApplication &&
 				msg.Action == transport.ActionSnapshotState &&
 				msg.Data["role"] == "response" &&

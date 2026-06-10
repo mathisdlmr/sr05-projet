@@ -107,14 +107,19 @@ func (c *Control) triggerSnapshot(initiateur bool) {
 	})
 
 	// 5. Mode pending. La suite se fait dans handleSnapshotStateResponse.
-	c.snapshotPending = true
+	c.globalSnapshotPending = true
 }
 
 // handleSnapshotStateResponse est appelée quand l'App locale répond à notre
 // requête ActionSnapshotState. C'est ici qu'on finalise EG_i, qu'on envoie
 // [état] sur l'anneau (si non-initiateur), et qu'on rejoue la file d'attente.
 func (c *Control) handleSnapshotStateResponse(msg *transport.Message) {
-	if !c.snapshotPending || c.pendingControlSnap == nil {
+
+	if c.awaitingInitSnapshotForSite != -1 {
+		c.sendInitToSite(msg.Data["state"], c.awaitingInitSnapshotForSite)
+	}
+
+	if !c.globalSnapshotPending || c.pendingControlSnap == nil {
 		c.log.Warn("handleSnapshotStateResponse", "reçu hors mode pending, ignoré")
 		return
 	}
@@ -161,7 +166,7 @@ func (c *Control) handleSnapshotStateResponse(msg *transport.Message) {
 	}
 
 	// Sortie du mode pending
-	c.snapshotPending = false
+	c.globalSnapshotPending = false
 	c.pendingControlSnap = nil
 
 	// Rejouer la file d'attente accumulée pendant le freeze

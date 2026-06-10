@@ -25,10 +25,11 @@ func main() {
 	id := flag.Int("id", 1, "identifiant de ce site (ex: J1)")
 	nbSites := flag.Int("sites", 5, "nombre total de sites dans le système")
 	name := flag.String("n", "ctrl", "nom du processus (pour les logs)")
+	initiateur := flag.Bool("isInitiator", false, "True si ce site est le premier créé, i.e. n'attend pas d'être initialisé.")
 	flag.Parse()
 
 	log := logger.New(*name)
 	io := transport.NewIO()
-	ctrl := control.New(*id, *nbSites, io, log)
+	ctrl := control.New(*id, *nbSites, *initiateur, io, log)
 	ctrl.Run()
 }

@@ -43,13 +43,15 @@ for i in $(seq 1 $NB_SITES); do
 done
 
 # Lancement des processus
+# Le premier control est initiateur ("true")
 for i in $(seq 1 $NB_SITES); do
 	PORT=$((BASE_PORT + i - 1))
 
 	./bin/application -n "app$i" -id "J$i" -addr localhost -port "$PORT" -web "$ROOT/web" \
 	< /tmp/in_app$i > /tmp/out_app$i &
 	./bin/control -n "ctl$i" -id "$i" -sites "$NB_SITES" \
-	< /tmp/in_ctl$i > /tmp/out_ctl$i &
+		$([ "$i" -eq 1 ] && echo "true") \
+		< /tmp/in_ctl$i > /tmp/out_ctl$i &
 done
 
 # Connexions :

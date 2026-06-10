@@ -56,18 +56,10 @@ func (c *Control) handleRequestCS(msg *transport.Message) {
 	c.sendMessage(ackMsg)
 	c.log.Info("Run", fmt.Sprintf("envoi d'un message d'acquittement à %d", msg.Sender))
 	c.checkCriticalSection()
-	// Forward sur l'anneau : la requête doit faire le tour pour que tous les
-	// sites la voient dans leur queue locale.
-	c.io.Send(msg.String())
 }
 
 // handleAcknowledgeCS - traite les messages de type AcknowledgeCS (acquittement d'une requete de section critique d'un site)
 func (c *Control) handleAcknowledgeCS(msg *transport.Message) {
-	// Forward sur l'anneau dans tous les cas. Même si l'ack ne nous est pas
-	// destiné, il doit continuer à circuler pour atteindre son destinataire
-	// et boucler jusqu'à l'émetteur (auto-détection).
-	defer c.io.Send(msg.String())
-
 	// vérifie que le message d'acquittement nous est bien destiné
 	targetStr, ok := msg.Data["target"]
 	if !ok {
@@ -110,7 +102,4 @@ func (c *Control) handleReleaseCS(msg *transport.Message) {
 	})
 
 	c.checkCriticalSection()
-	// Forward sur l'anneau (broadcast du release pour que tous les sites
-	// mettent à jour leur queue locale).
-	c.io.Send(msg.String())
 }

@@ -198,7 +198,6 @@ func (c *Control) replayPending() {
 // (algo 11 lignes 30-40). Si on est l'initiateur : on collecte. Sinon : forward.
 func (c *Control) handleSnapshotState(msg *transport.Message) {
 	if !c.initiateur {
-		c.io.Send(msg.String())
 		return
 	}
 
@@ -227,7 +226,6 @@ func (c *Control) handleSnapshotState(msg *transport.Message) {
 // (algo 11 lignes 41-51). Si on est l'initiateur : on collecte. Sinon : forward.
 func (c *Control) handleSnapshotPrepost(msg *transport.Message) {
 	if !c.initiateur {
-		c.io.Send(msg.String())
 		return
 	}
 
@@ -253,8 +251,6 @@ func (c *Control) handleSnapshotComplete(msg *transport.Message) {
 	var eg EG
 	if err := json.Unmarshal([]byte(egJSON), &eg); err != nil {
 		c.log.Error("handleSnapshotComplete", "unmarshal: "+err.Error())
-		// Forward quand même pour ne pas bloquer le tour
-		c.io.Send(msg.String())
 		return
 	}
 	c.EG = &eg
@@ -265,10 +261,6 @@ func (c *Control) handleSnapshotComplete(msg *transport.Message) {
 		Action: transport.ActionRestoreSnapshot,
 		Data:   map[string]string{"eg": egJSON},
 	})
-
-	// Forward sur l'anneau (l'auto-détection au top de handleControlMessage
-	// arrête le tour quand le message revient à l'initiateur).
-	c.io.Send(msg.String())
 
 	c.log.Success("handleSnapshotComplete", "snapshot reçu, sauvegardé et poussé à l'App")
 

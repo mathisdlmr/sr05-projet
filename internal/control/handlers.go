@@ -138,7 +138,7 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 		}
 	}
 
-	// Le forward sur l'anneau est fait dans chaque handler.
+	// Traitement dans chaque handler.
 	switch msg.Action {
 	case transport.ActionNewSiteAdded:
 		c.handleNewSiteAdded(msg)
@@ -162,10 +162,7 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 		if c.couleur == transport.ColorWhite {
 			c.triggerSnapshot(false)
 		}
-		c.io.Send(msg.String()) // forward sur l'anneau
 	default:
 		c.log.Warn("Run", fmt.Sprintf("action inconnue dans message de contrôle: %s", msg.Action))
-		// On forward quand même pour ne pas casser la propagation.
-		c.io.Send(msg.String())
 	}
 }

@@ -92,10 +92,17 @@ const (
 
 	// Net
 	ActionAddMeToNet        Action = "AddMeToNet"        // Contient l'id du nouveau site
-	ActionConnectToYourNext Action = "connectToYourNext" // Contient l'id du next
+	ActionConnectToYourNext Action = "connectToYourNext" // Contient l'id du next et la sauvegarde du contrôle
 
-	ActionElection         Action = "election" // Continent l'id du nouveau site
-	ActionElectionTerminee Action = "electionTerminee"
+	ActionRequestControlSnapshot Action = "requestControlSnapshot"
+	ActionSendControlSnapshot    Action = "sendControlSnapshot"
+
+	ActionElection         Action = "election"         // Continent l'id du nouveau site
+	ActionElectionTerminee Action = "electionTerminee" // Continent l'id du nouveau site + infos necessaire (horloge vectorielle et/ou de lamport ?)
+
+	ActionSiteAjoute Action = "siteAjoute" // de net vers controle et de controle vers application
+
+	ActionDepart Action = "depart" // contient l'id du site qui part
 )
 
 // Message représente un type de message avec horodatage, expéditeur et des données structurées.

@@ -94,9 +94,6 @@ const (
 	ActionAddMeToNet        Action = "AddMeToNet"        // Contient l'id du nouveau site
 	ActionConnectToYourNext Action = "connectToYourNext" // Contient l'id du next et la sauvegarde du contrôle
 
-	ActionRequestControlSnapshot Action = "requestControlSnapshot"
-	ActionSendControlSnapshot    Action = "sendControlSnapshot"
-
 	ActionElection         Action = "election"         // Continent l'id du nouveau site
 	ActionElectionTerminee Action = "electionTerminee" // Continent l'id du nouveau site + infos necessaire (horloge vectorielle et/ou de lamport ?)
 

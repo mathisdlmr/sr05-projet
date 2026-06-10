@@ -1,6 +1,7 @@
 package control
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/sr05-projet/pkg/logger"
@@ -22,13 +23,16 @@ type queueEntry struct {
 }
 
 type Control struct {
-	myID    int
-	nbSites int
-	io      *transport.IO
-	log     *logger.Logger
+	myID        int
+	nbSites     int
+	io          *transport.IO
+	log         *logger.Logger
+	initialized bool
 
-	clock       int
-	vectorClock map[int]int
+	clock         int
+	vectorClock   map[int]int // horloge vectorielle
+	LamportClocks map[int]int // timestamps des derniers messages reçus de chaque site
+
 	// file d'attente section critique
 	// map d'ID du site vers son état en SC
 	queue map[int]queueEntry
@@ -45,7 +49,7 @@ type Control struct {
 	EG                 *EG                  // état global collecté (initiateur) ou reçu (autres)
 }
 
-func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
+func New(myID int, nbSites int, initiateur bool, io *transport.IO, log *logger.Logger) *Control {
 
 	// initialisation de la file d'attente (map d'ID du site vers son état en SC)
 	queue := make(map[int]queueEntry)
@@ -71,6 +75,7 @@ func New(myID int, nbSites int, io *transport.IO, log *logger.Logger) *Control {
 		vectorClock: vectorClock,
 		queue:       queue,
 		couleur:     transport.ColorWhite,
+		initialized: initiateur,
 	}
 }
 
@@ -85,6 +90,81 @@ func (c *Control) HandleMessage(msg *transport.Message) {
 	default:
 		c.log.Warn("Run", fmt.Sprintf("message avec type inconnu: type=%s data=%v", msg.Type, msg.Data))
 	}
+}
+
+func (c *Control) Initialize(state SiteState) {
+	c.log.Info("Initialize", fmt.Sprintf("initialisation du control avec state=%v", state))
+
+	// la queue devient celle de state.ControlState.Queue
+	for id, entry := range state.ControlState.Queue {
+		c.queue[id] = queueEntry{
+			Status:    entry.Status,
+			Timestamp: entry.Timestamp,
+		}
+	}
+
+	// idem pour l'horloge vectorielle state.ControlState.VectorClock
+	for id, ts := range state.ControlState.VectorClock {
+		c.vectorClock[id] = ts
+	}
+
+	// et pour la liste des derniers timestamps reçus de chaque site
+	for id, ts := range state.ControlState.LamportClocks {
+		c.LamportClocks[id] = ts
+	}
+
+	// On s'ajoute comme site actif
+	c.AddSite(c.myID)
+	c.initialized = true
+
+	// Envoyer à tous qu'on est initialisé
+	c.sendMessage(transport.Message{
+		Type:   transport.TypeControl,
+		Action: transport.ActionNewSiteAdded,
+	})
+}
+
+func (c *Control) WaitingForInit() {
+
+	// queue fifo des messages non traités
+	initQueue := make([]*transport.Message, 0)
+
+	for {
+		msg, err := c.ReadNextMessage()
+		if err != nil {
+			c.log.Error("WaitingForInit", "lecture message: "+err.Error())
+			continue
+		}
+
+		if msg.Type == transport.TypeControl && msg.Action == transport.ActionNewSiteInit {
+			c.log.Info("WaitingForInit", "message d'initialisation reçu, lancement de Run")
+			var initializationData SiteState
+			if err := json.Unmarshal([]byte(msg.Data["siteState"]), &initializationData); err != nil {
+				c.log.Error("handleSnapshotState", "unmarshal siteState: "+err.Error())
+				return
+			}
+			c.Initialize(initializationData)
+			break
+		} else {
+			c.log.Warn("WaitingForInit", fmt.Sprintf("message reçu avant init: type=%s data=%v, mis en attente", msg.Type, msg.Data))
+			initQueue = append(initQueue, msg)
+		}
+	}
+
+	// Rejoue les messages reçus pendant l'attente de l'init
+	for _, msg := range initQueue {
+		c.log.Info("WaitingForInit", fmt.Sprintf("retraitement message reçu avant init: type=%s data=%v", msg.Type, msg.Data))
+
+		// ignore les messages déjà inclus dans la snapshot
+		// cad les messages deja recus par le parrain avant la snapshot
+		if *msg.Timestamp <= c.LamportClocks[msg.Sender] {
+			c.log.Info("WaitingForInit", fmt.Sprintf("message ignoré, déjà inclus dans la snapshot: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
+			continue
+		}
+
+		c.HandleMessage(msg)
+	}
+
 }
 
 func (c *Control) ReadNextMessage() (*transport.Message, error) {
@@ -103,6 +183,12 @@ func (c *Control) ReadNextMessage() (*transport.Message, error) {
 
 func (c *Control) Run() {
 	c.log.Info("Run", fmt.Sprintf("démarrage controle id=%d nbSites=%d", c.myID, c.nbSites))
+
+	// Si non initialisé, rentre dans boucle non init
+	if !c.initialized {
+		c.WaitingForInit()
+	}
+
 	for {
 		msg, err := c.ReadNextMessage()
 		if err != nil {

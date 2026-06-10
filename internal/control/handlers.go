@@ -102,6 +102,9 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 	}
 	c.log.Info("Run", fmt.Sprintf("message de contrôle reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
 
+	// met a jour la liste des derniers messages reçus de chaque site
+	c.LamportClocks[msg.Sender] = *msg.Timestamp
+
 	// Recale Lamport : c = max(c, ts) + 1
 	c.updateClock(msg)
 	c.updateVectorClock(msg.VectorClock)
@@ -137,6 +140,10 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 
 	// Le forward sur l'anneau est fait dans chaque handler.
 	switch msg.Action {
+	case transport.ActionNewSiteAdded:
+		c.handleNewSiteAdded(msg)
+	case transport.ActionRequestNewSiteInit:
+		c.handleRequestNewSiteInit(msg)
 	case transport.ActionRequestCS:
 		c.handleRequestCS(msg)
 	case transport.ActionAcknowlegeCS:

@@ -20,9 +20,10 @@ import (
 
 // ControlSnapshot capture l'état du Control au moment de la bascule.
 type ControlSnapshot struct {
-	Queue       map[int]queueEntry `json:"queue"`
-	Bilan       int                `json:"bilan"`
-	VectorClock map[int]int        `json:"vectorClock"`
+	Queue         map[int]queueEntry `json:"queue"`
+	Bilan         int                `json:"bilan"`
+	VectorClock   map[int]int        `json:"vectorClock"`
+	LamportClocks map[int]int        `json:"lamportClocks"`
 }
 
 // SiteState représente l'état complet d'un site (Control + App + horloge)
@@ -61,9 +62,10 @@ func (c *Control) snapshotControlState() ControlSnapshot {
 		vc[k] = v
 	}
 	return ControlSnapshot{
-		Queue:       q,
-		Bilan:       c.bilan,
-		VectorClock: vc,
+		Queue:         q,
+		Bilan:         c.bilan,
+		VectorClock:   vc,
+		LamportClocks: c.LamportClocks,
 	}
 }
 

@@ -1,5 +1,7 @@
 package application
 
+import "encoding/json"
+
 const (
 	NullPlayerID string = "NULLPLAYERID"
 )
@@ -162,6 +164,22 @@ func (a *App) applyDepart(playerID string) {
 		}
 	}
 }
+
+// handleNewSiteInit - restaure l'état du jeu reçu du parrain et passe en mode spectateur
+func (a *App) handleNewSiteInit(stateJSON string) {
+	var gs GameState
+	if err := json.Unmarshal([]byte(stateJSON), &gs); err != nil {
+		a.log.Error("handleNewSiteInit", "unmarshal state: "+err.Error())
+		return
+	}
+	gs.MyID = a.myID
+	a.state = gs
+	a.myRole = RoleUnknown
+	a.spectating = true
+	a.sendInit()
+	a.log.Info("handleNewSiteInit", "état reçu du parrain, mode spectateur activé")
+}
+
 // applyJoin - ajoute un joueur à l'état local, notifie le navigateur et les autres joueurs via une SC "join"
 func (a *App) applyJoin(playerID string) {
 	if _, ok := a.state.Players[playerID]; ok {

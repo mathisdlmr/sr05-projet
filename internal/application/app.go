@@ -239,5 +239,13 @@ func (a *App) handleFromControl(line string) {
 	// Un site a quitté le réseau : on marque le joueur mort localement
 	case transport.ActionDepart:
 		a.applyDepart(msg.Data["id"])
+
+	// Un nouveau site a rejoint le réseau : on l'ajoute en spectateur
+	case transport.ActionSiteAjoute:
+		a.applyJoin(msg.Data["id"])
+
+	// Initialisation d'état pour un nouveau site qui rejoint en cours de partie
+	case transport.ActionNewSiteInit:
+		a.handleNewSiteInit(msg.Data["state"])
 	}
 }

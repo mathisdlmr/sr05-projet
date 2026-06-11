@@ -98,9 +98,23 @@ export default function App() {
     )
   }
 
+  const isSpectator = state.myRole === '?' && state.phase !== 'LOBBY'
+
   return (
     <div className="app">
       <Header state={state} send={send} />
+      {isSpectator && (
+        <div style={{
+          background: 'var(--surface)',
+          borderBottom: '2px solid var(--gold)',
+          padding: '8px 16px',
+          textAlign: 'center',
+          fontSize: '0.875rem',
+          color: 'var(--gold)',
+        }}>
+          👁 Mode spectateur — vous observez la partie sans y participer
+        </div>
+      )}
       <main className="main">
         <div className="panel">
           {state.phase === 'LOBBY' && <Lobby state={state} send={send} />}

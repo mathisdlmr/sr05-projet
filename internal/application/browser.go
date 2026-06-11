@@ -16,6 +16,11 @@ func (a *App) handleBrowserConnect() {
 	a.log.Info("handleBrowserConnect", "navigateur connecté")
 	a.quitting = false
 
+	if a.spectating {
+		a.sendInit()
+		return
+	}
+
 	if _, ok := a.state.Players[a.myID]; !ok {
 		a.state.Players[a.myID] = Player{ID: a.myID, Role: RoleUnknown, Alive: true}
 	}

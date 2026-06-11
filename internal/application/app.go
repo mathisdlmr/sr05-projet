@@ -35,6 +35,7 @@ type App struct {
 	pending     *pendingData
 	quitting    bool // true après l'envoie d'un départ (pour éviter des doublons si la ws se reconnecte)
 	needsRejoin bool
+	spectating  bool
 }
 
 func New(myID string, io *transport.IO, log *logger.Logger, addr string, port string, web string) *App {

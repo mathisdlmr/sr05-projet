@@ -11,7 +11,8 @@ export function VotePhase({ state, send }: Props) {
 
   const myVote = state.votes[state.myId]
   const alreadyVoted = myVote !== undefined
-  const canVote = state.myAlive && !alreadyVoted
+  const isSpectator = state.myRole === '?'
+  const canVote = state.myAlive && !alreadyVoted && !isSpectator
 
   const alivePlayers = Object.values(state.players).filter(p => p.alive && p.id !== state.myId)
   const allPlayers = Object.values(state.players)

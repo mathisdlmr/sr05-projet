@@ -55,6 +55,14 @@ function reducer(state: GameState, action: Action): GameState {
         },
       }
 
+    case 'playerLeft': {
+      const players = { ...state.players }
+      if (players[action.playerId]) {
+        players[action.playerId] = { ...players[action.playerId], alive: false }
+      }
+      return { ...state, players }
+    }
+
     case 'gameRestart':
       return {
         ...initial,
@@ -164,6 +172,13 @@ export function useGame(): [GameState, (action: string, extra?: Record<string, s
 
     ws.onopen = () => dispatch({ type: 'wsOpen' })
     ws.onclose = () => dispatch({ type: 'wsClose' })
+
+    const handleUnload = () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: 'quit' }))
+      }
+    }
+    window.addEventListener('beforeunload', handleUnload)
     ws.onmessage = (e: MessageEvent<string>) => {
       try {
         dispatch(JSON.parse(e.data) as Action)
@@ -172,7 +187,10 @@ export function useGame(): [GameState, (action: string, extra?: Record<string, s
       }
     }
 
-    return () => ws.close()
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload)
+      ws.close()
+    }
   }, [])
 
   const send = (action: string, extra: Record<string, string> = {}) => {

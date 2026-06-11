@@ -24,10 +24,11 @@ type Server struct {
 	web  string
 	log  *logger.Logger
 
-	mu       sync.Mutex
-	ws       *websocket.Conn
-	inbox    chan string
-	connects chan struct{}
+	mu          sync.Mutex
+	ws          *websocket.Conn
+	inbox       chan string
+	connects    chan struct{}
+	disconnects chan struct{}
 }
 
 var upgrader = websocket.Upgrader{
@@ -36,17 +37,21 @@ var upgrader = websocket.Upgrader{
 
 func New(addr string, port string, web string, log *logger.Logger) *Server {
 	return &Server{
-		addr:     addr,
-		port:     port,
-		web:      web,
-		log:      log,
-		inbox:    make(chan string, 16),
-		connects: make(chan struct{}, 1),
+		addr:        addr,
+		port:        port,
+		web:         web,
+		log:         log,
+		inbox:       make(chan string, 16),
+		connects:    make(chan struct{}, 1),
+		disconnects: make(chan struct{}, 1),
 	}
 }
 
 // Connects - retourne un channel qui reçoit un signal à chaque nouvelle connexion WebSocket
 func (s *Server) Connects() <-chan struct{} { return s.connects }
+
+// Disconnects - retourne un channel signalé à chaque fermeture de WebSocket
+func (s *Server) Disconnects() <-chan struct{} { return s.disconnects }
 
 // Inbox - canal des messages reçus du navigateur (lecture seule pour l'app).
 func (s *Server) Inbox() <-chan string { return s.inbox }
@@ -105,6 +110,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			s.mu.Lock()
 			s.ws = nil
 			s.mu.Unlock()
+			select {
+			case s.disconnects <- struct{}{}:
+			default:
+			}
 			return
 		}
 		line := string(msg)

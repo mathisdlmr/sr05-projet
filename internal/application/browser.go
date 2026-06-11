@@ -12,9 +12,10 @@ type browserAction struct {
 }
 
 // handleBrowserConnect - appelé à chaque nouvelle connexion WebSocket depuis le navigateur
-// Ajoute le joueur à l'état local s'il n'existe pas déjà, envoie l'init et notifie les autres joueurs via une SC "join"
 func (a *App) handleBrowserConnect() {
 	a.log.Info("handleBrowserConnect", "navigateur connecté")
+	a.quitting = false
+
 	if _, ok := a.state.Players[a.myID]; !ok {
 		a.state.Players[a.myID] = Player{ID: a.myID, Role: RoleUnknown, Alive: true}
 	}
@@ -40,6 +41,11 @@ func (a *App) handleFromBrowser(raw string) {
 	}
 	if action.Action == "init" {
 		a.sendInit()
+		return
+	}
+	if action.Action == "quit" {
+		a.log.Info("handleFromBrowser", "joueur quitte")
+		a.sendDepart()
 		return
 	}
 	if action.Action == "restart" {

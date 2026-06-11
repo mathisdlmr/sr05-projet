@@ -22,17 +22,19 @@ type pendingData struct {
 }
 
 type App struct {
-	myID    string
-	siteID  int
-	myRole  Role
-	state   GameState
-	io      *transport.IO
-	log     *logger.Logger
-	addr    string
-	port    string
-	web     string
-	srv     *server.Server
-	pending *pendingData
+	myID        string
+	siteID      int
+	myRole      Role
+	state       GameState
+	io          *transport.IO
+	log         *logger.Logger
+	addr        string
+	port        string
+	web         string
+	srv         *server.Server
+	pending     *pendingData
+	quitting    bool // true après l'envoie d'un départ (pour éviter des doublons si la ws se reconnecte)
+	needsRejoin bool
 }
 
 func New(myID string, io *transport.IO, log *logger.Logger, addr string, port string, web string) *App {
@@ -104,7 +106,31 @@ func (a *App) Run() {
 			a.handleFromBrowser(raw)
 		case <-a.srv.Connects():
 			a.handleBrowserConnect()
+		case <-a.srv.Disconnects():
+			a.handleBrowserDisconnect()
 		}
+	}
+}
+
+// handleBrowserDisconnect - appelé quand la WebSocket se ferme
+func (a *App) handleBrowserDisconnect() {
+	if a.quitting {
+		return
+	}
+	a.log.Info("handleBrowserDisconnect", "navigateur déconnecté, envoi depart")
+	a.sendDepart()
+}
+
+// sendDepart - envoie un message depart au control local
+func (a *App) sendDepart() {
+	a.quitting = true
+	if err := a.io.Send(transport.Message{
+		Type:   transport.TypeApplication,
+		Action: transport.ActionDepart,
+		Sender: a.siteID,
+		Data:   map[string]string{"id": a.myID},
+	}.String()); err != nil {
+		a.log.Error("sendDepart", "envoi depart: "+err.Error())
 	}
 }
 
@@ -200,11 +226,17 @@ func (a *App) handleFromControl(line string) {
 		}
 		a.log.Info("handleFromControl", "SC accordée, EndCS envoyé: "+pending.data["cmd"])
 		a.pending = nil
+		a.checkNeedsRejoin()
 
 	// Quand on reçoit une ReleaseCS, ça veut dire qu'une action a été validée par le contrôle (après accord de tous les joueurs),
 	// et qu'on peut l'appliquer localement (handleDistributedAction)
 	case transport.ActionReleaseCS:
 		a.log.Info("handleFromControl", "ReleaseCS reçu, action: "+msg.Data["cmd"])
 		a.handleDistributedAction(msg.Data)
+		a.checkNeedsRejoin()
+
+	// Un site a quitté le réseau : on marque le joueur mort localement
+	case transport.ActionDepart:
+		a.applyDepart(msg.Data["id"])
 	}
 }

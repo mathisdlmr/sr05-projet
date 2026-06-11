@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useGame } from './useGame'
 import type { GameState } from './types'
 import { Lobby } from './components/Lobby'
@@ -13,6 +14,30 @@ function roleLabel(role: string): string {
     case 'VILLAGER': return '🏡 Villageois'
     default:         return '❓ Inconnu'
   }
+}
+
+function QuitButton({ send }: { send: (action: string) => void }) {
+  const [confirming, setConfirming] = useState(false)
+
+  if (!confirming) {
+    return (
+      <button className="btn btn-danger" style={{ fontSize: '0.75rem', padding: '4px 10px' }} onClick={() => setConfirming(true)}>
+        Quitter
+      </button>
+    )
+  }
+
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}>
+      Confirmer ?
+      <button className="btn btn-danger" style={{ fontSize: '0.75rem', padding: '4px 10px' }} onClick={() => send('quit')}>
+        Oui
+      </button>
+      <button className="btn btn-neutral" style={{ fontSize: '0.75rem', padding: '4px 10px' }} onClick={() => setConfirming(false)}>
+        Non
+      </button>
+    </span>
+  )
 }
 
 function Header({ state, send }: { state: GameState; send: (action: string, extra?: Record<string, string>) => void }) {
@@ -42,6 +67,7 @@ function Header({ state, send }: { state: GameState; send: (action: string, extr
            state.wsStatus === 'disconnected' ? 'Déconnecté' : 'Connexion...'}
         </span>
         <SnapshotControl state={state} send={send} />
+        {state.wsStatus === 'connected' && <QuitButton send={send} />}
       </div>
     </header>
   )
@@ -82,7 +108,7 @@ export default function App() {
             <NightPhase state={state} send={send} />
           )}
           {state.phase === 'VOTE' && <VotePhase state={state} send={send} />}
-          {state.phase === 'END' && <EndPhase state={state} />}
+          {state.phase === 'END' && <EndPhase state={state} send={send} />}
         </div>
       </main>
     </div>

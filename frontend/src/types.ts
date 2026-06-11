@@ -53,6 +53,7 @@ export interface SnapshotEG {
 export type ServerEvent =
   | { type: 'init'; phase: Phase; myId: string; myRole: Role; myAlive: boolean; players: Record<string, Player>; votes: Record<string, string>; killWolf?: string }
   | { type: 'playerJoined'; playerId: string }
+  | { type: 'playerLeft'; playerId: string }
   | { type: 'gameStart'; myRole: Role; players: Record<string, Player> }
   | { type: 'wolfVoted'; voter: string; target?: string }
   | { type: 'phaseChange'; phase: Phase; killWolf?: string }

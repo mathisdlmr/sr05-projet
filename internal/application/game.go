@@ -111,6 +111,57 @@ func (a *App) handleDistributedAction(data map[string]string) {
 	}
 }
 
+// applyDepart - marque un joueur comme mort suite à son départ du réseau
+func (a *App) applyDepart(playerID string) {
+	if _, ok := a.state.Players[playerID]; !ok {
+		a.log.Warn("applyDepart", "joueur inconnu: "+playerID)
+		return
+	}
+
+	p := a.state.Players[playerID]
+	p.Alive = false
+	a.state.Players[playerID] = p
+	delete(a.state.Votes, playerID)
+
+	a.pushEvent(map[string]interface{}{
+		"type":     "playerLeft",
+		"playerId": playerID,
+	})
+	a.log.Info("applyDepart", "joueur parti: "+playerID)
+
+	if a.checkEndOfGame() && a.state.Phase != PhaseEnd {
+		a.sendGameEnd()
+		return
+	}
+
+	// On vérifie en plus si le départ débloque la phase courante
+	switch a.state.Phase {
+	case PhaseNight:
+		if a.checkAllVotesCompleted() {
+			target, valid := a.computeVoteResults()
+			if valid {
+				a.state.KillWolf = target
+			}
+			a.transitionToWitch()
+		}
+	case PhaseVote:
+		if a.checkAllVotesCompleted() {
+			a.applyVoteResult()
+			a.transitionToNight()
+		}
+	case PhaseWitch:
+		witchAlive := false
+		for _, p := range a.state.Players {
+			if p.Role == RoleWitch && p.Alive {
+				witchAlive = true
+				break
+			}
+		}
+		if !witchAlive {
+			a.transitionToVote()
+		}
+	}
+}
 // applyJoin - ajoute un joueur à l'état local, notifie le navigateur et les autres joueurs via une SC "join"
 func (a *App) applyJoin(playerID string) {
 	if _, ok := a.state.Players[playerID]; ok {

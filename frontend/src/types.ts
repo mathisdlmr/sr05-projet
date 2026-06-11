@@ -60,5 +60,6 @@ export type ServerEvent =
   | { type: 'voted'; voter: string; target: string }
   | { type: 'voteEliminated'; playerId: string; nextPhase: 'NIGHT' | 'END' }
   | { type: 'gameEnd'; winner: string; players: Record<string, Player> }
+  | { type: 'gameRestart' }
   | { type: 'snapshot_received'; eg: SnapshotEG }
   | { type: 'snapshot_rejected'; reason: string }

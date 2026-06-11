@@ -42,6 +42,11 @@ func (a *App) handleFromBrowser(raw string) {
 		a.sendInit()
 		return
 	}
+	if action.Action == "restart" {
+		a.requestCS(map[string]string{"cmd": "restart"})
+		a.log.Info("handleFromBrowser", "redémarrage demandé")
+		return
+	}
 	// Snapshot : déclencheur depuis un bouton du navigateur. Pas de section critique,
 	// on envoie directement ActionStartSnapshot au Control local.
 	if action.Action == "startSnapshot" {

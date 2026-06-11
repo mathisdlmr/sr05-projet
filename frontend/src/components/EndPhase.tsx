@@ -2,6 +2,7 @@ import type { GameState } from '../types'
 
 interface Props {
   state: GameState
+  send: (action: string) => void
 }
 
 function roleLabel(role: string): { label: string; emoji: string } {
@@ -13,7 +14,7 @@ function roleLabel(role: string): { label: string; emoji: string } {
   }
 }
 
-export function EndPhase({ state }: Props) {
+export function EndPhase({ state, send }: Props) {
   const isWolvesWin = state.winner === 'WOLVES'
   const players = Object.values(state.players)
 
@@ -88,7 +89,7 @@ export function EndPhase({ state }: Props) {
       <div className="btn-row" style={{ justifyContent: 'center', marginTop: '8px' }}>
         <button
           className="btn btn-primary btn-lg"
-          onClick={() => window.location.reload()}
+          onClick={() => send('restart')}
         >
           🔄 Rejouer
         </button>

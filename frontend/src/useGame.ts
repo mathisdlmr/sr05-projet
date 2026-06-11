@@ -55,6 +55,13 @@ function reducer(state: GameState, action: Action): GameState {
         },
       }
 
+    case 'gameRestart':
+      return {
+        ...initial,
+        wsStatus: state.wsStatus,
+        myId: state.myId,
+      }
+
     case 'gameStart':
       return {
         ...state,

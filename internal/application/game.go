@@ -95,6 +95,17 @@ func (a *App) handleDistributedAction(data map[string]string) {
 			a.transitionFromStart()
 		}
 
+	case "restart":
+		a.state = NewGameState(a.myID)
+		a.myRole = RoleUnknown
+		a.spectating = false
+		a.needsRejoin = true
+		a.pushEvent(map[string]interface{}{
+			"type": "gameRestart",
+		})
+		a.sendInit()
+		a.log.Info("handleDistributedAction", "partie redémarrée, retour en LOBBY")
+
 	default:
 		a.log.Warn("handleDistributedAction", "action inconnue: "+data["cmd"])
 	}

@@ -108,6 +108,18 @@ func (a *App) Run() {
 	}
 }
 
+// checkNeedsRejoin - déclenche une SC pour rejoindre la partie une fois que le restar a été accordé
+func (a *App) checkNeedsRejoin() {
+	if !a.needsRejoin {
+		return
+	}
+	a.needsRejoin = false
+	a.requestCS(map[string]string{
+		"cmd":    "join",
+		"player": a.myID,
+	})
+}
+
 // --- Demande de section critique ---
 
 // requestCS - demande l'entrée en section critique

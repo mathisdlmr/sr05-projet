@@ -71,6 +71,14 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 		}
 	}
 
+	if msg.Action == transport.ActionDepart { // le joueur local s'en va : on prévient tout le monde
+		c.sendMessage(transport.Message{
+			Type:   transport.TypeControl,
+			Action: transport.ActionDepart,
+			Data:   msg.Data, // contient id = identifiant joueur (ex "J2")
+		})
+	}
+
 	if msg.Action == transport.ActionStartSnapshot { // déclencheur snapshot depuis le navigateur
 		// Si on est déjà rouge un snapshot tourne (le nôtre ou celui d'un
 		// autre initiateur reçu via Wakeup). On refuse : sinon deux initiateurs
@@ -156,6 +164,8 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 		c.handleSnapshotPrepost(msg)
 	case transport.ActionSnapshotComplete:
 		c.handleSnapshotComplete(msg)
+	case transport.ActionDepart:
+		c.handleDepart(msg)
 	case transport.ActionWakeup:
 		// Bascule si on est encore blanc. Le wakeup ne passe pas par le
 		// lestage/bilan pour ne pas polluer le bilan entre snapshots.
@@ -165,4 +175,15 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 	default:
 		c.log.Warn("Run", fmt.Sprintf("action inconnue dans message de contrôle: %s", msg.Action))
 	}
+}
+
+// handleDepart - un site annonce son départ : on le retire du membership
+// puis on relaie à l'app locale pour qu'elle marque le joueur comme mort.
+func (c *Control) handleDepart(msg *transport.Message) {
+	c.RemoveSite(msg.Sender)
+	c.sendMessage(transport.Message{
+		Type:   transport.TypeApplication,
+		Action: transport.ActionDepart,
+		Data:   msg.Data,
+	})
 }

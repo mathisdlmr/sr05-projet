@@ -79,12 +79,19 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 		})
 	}
 
+	// Réponse de l'app à une demande de snapshot d'état (init filleul hors mode freeze)
+	if msg.Action == transport.ActionSnapshotState && msg.Data["role"] == "response" {
+		c.handleSnapshotStateResponse(msg)
+		return
+	}
+
 	if msg.Action == transport.ActionStartSnapshot { // déclencheur snapshot depuis le navigateur
 		// Si on est déjà rouge un snapshot tourne (le nôtre ou celui d'un
-		// autre initiateur reçu via Wakeup). On refuse : sinon deux initiateurs
-		// simultanés se deadlockent, le premier intercepte les [état] avant
-		// qu'ils n'atteignent le second.
-		if c.couleur == transport.ColorRed {
+		// autre initiateur reçu via Wakeup), ou si une init de filleul est en attente,
+		// on refuse : sinon deux initiateurs simultanés se deadlockent, le premier
+		// intercepte les [état] avant qu'ils n'atteignent le second. Idem pour l'init :
+		// snapshot et init utilisent le même round-trip app, ils ne peuvent pas coexister.
+		if c.couleur == transport.ColorRed || c.awaitingInitSnapshotForSite != -1 {
 			c.log.Warn("handleApplicationMessage", "snapshot refusé : déjà en cours")
 			c.sendMessage(transport.Message{
 				Type:   transport.TypeApplication,

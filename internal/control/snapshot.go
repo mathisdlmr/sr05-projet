@@ -113,12 +113,13 @@ func (c *Control) triggerSnapshot(initiateur bool) {
 }
 
 // handleSnapshotStateResponse est appelée quand l'App locale répond à notre
-// requête ActionSnapshotState. C'est ici qu'on finalise EG_i, qu'on envoie
-// [état] sur l'anneau (si non-initiateur), et qu'on rejoue la file d'attente.
+// requête ActionSnapshotState. C'est ici qu'on finalise EG_i, qu'on diffuse
+// [état] via le réseau (si non-initiateur), et qu'on rejoue la file d'attente.
 func (c *Control) handleSnapshotStateResponse(msg *transport.Message) {
 
 	if c.awaitingInitSnapshotForSite != -1 {
 		c.sendInitToSite(msg.Data["state"], c.awaitingInitSnapshotForSite)
+		c.awaitingInitSnapshotForSite = -1
 	}
 
 	if !c.globalSnapshotPending || c.pendingControlSnap == nil {

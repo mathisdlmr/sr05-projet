@@ -45,6 +45,15 @@ func (c *Control) handleRequestNewSiteInit(msg *transport.Message) {
 
 	id := msg.Data["id"]
 
+	// On parse l'id du site avant d'envoyer la requête à l'app :
+	// un id invalide doit avorter proprement sans lancer le round-trip.
+	siteID, err := strconv.Atoi(id)
+	if err != nil {
+		c.log.Error("handleRequestNewSiteInit", "id de site invalide: "+id)
+		return
+	}
+	c.awaitingInitSnapshotForSite = siteID
+
 	c.log.Info("handleRequestNewSiteInit", "initialisation du nouveau site "+id)
 
 	// requete a app locale pour qu'elle nous envoie son snapshot (etat de l'app + horloge)

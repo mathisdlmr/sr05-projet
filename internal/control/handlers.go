@@ -34,7 +34,7 @@ func (c *Control) updateVectorClock(vc map[int]int) {
 // handleApplicationMessage - traite les messages venant de l'application (locale)
 func (c *Control) handleApplicationMessage(msg *transport.Message) {
 
-	// Ignore les message destinés à l'application provenant du control précédent dans l'anneau
+	// Ignore les message destinés à l'application provenant d'autres sites du réseau
 	// Les messages de types application sont seulement a destination interne aux sites
 	if msg.Sender != c.myID {
 		return
@@ -112,7 +112,7 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 		return
 	}
 	if msg.Sender == c.myID {
-		c.log.Debug("Run", fmt.Sprintf("control_message propre de retour, ignoré (anneau) timestamp=%d", *msg.Timestamp))
+		c.log.Debug("Run", fmt.Sprintf("control_message propre de retour, ignoré (diffusion) timestamp=%d", *msg.Timestamp))
 		return
 	}
 	c.log.Info("Run", fmt.Sprintf("message de contrôle reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))

@@ -256,9 +256,10 @@ func (c *Control) sendMessage(m transport.Message) {
 	if isApplicativeRingMessage(m) {
 		// Lestage Lai-Yang : on tague avec la couleur courante (algo 11 ligne 15).
 		m.Color = c.couleur
-		// L'algo ajoute +1 par envoi. Notre anneau avec tee diffuse à nbSites-1
-		// sites en un seul envoi physique (chacun décrémentera de 1), donc on
-		// compense pour garder Σ bilan = nb_msg_en_transit.
+		// L'algo du cours compte +1 par envoi point-à-point. Chez nous une
+		// émission = une diffusion (contrat net : nbSites-1 livraisons, peu
+		// importe la topologie), donc +nbSites-1 pour garder
+		// Σ bilan = nb de livraisons en attente.
 		c.bilan += c.nbSites - 1
 	}
 

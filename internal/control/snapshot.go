@@ -1,5 +1,18 @@
 // Algorithme 11 d'instantané (Lai-Yang avec reconstitution + terminaison)
-// Référence : docs/cours/poly-instantanes.pdf chapitre 6, Algorithme 11.
+// Référence : poly chapitre 6, Algorithme 11.
+//
+// CONTRAT AVEC LA COUCHE NET : ce fichier ne fait AUCUNE hypothèse de
+// topologie. Il suppose une primitive de diffusion fiable fournie par net :
+//   1. tout message TypeControl émis par un site est livré exactement une
+//      fois à chacun des autres membres de la vue courante (d'où, à
+//      l'émission, bilan += N-1 : une émission = N-1 livraisons) ;
+//   2. pas d'écho : un site ne reçoit pas ses propres messages (le
+//      self-detect de handleControlMessage reste just in case) ;
+//   3. FIFO par émetteur : pas nécessaire pour CET algo (le lestage couleur
+//      accepte le non-FIFO), mais la file d'attente répartie et le filtre
+//      d'init des nouveaux sites en ont besoin, eux.
+// Les changements de membership passent par les vues (cf. onViewChange) :
+// changement de vue = bilan remis à 0 + abort du snapshot en cours.
 //
 // Ce fichier regroupe :
 //   - les types EG, SiteState, ControlSnapshot
@@ -141,7 +154,7 @@ func (c *Control) handleSnapshotStateResponse(msg *transport.Message) {
 		c.EG.States[c.myID] = siteState
 		c.log.Info("handleSnapshotStateResponse", "EG_i initiateur capturé localement")
 
-		// Envoi d'un Wakeup rouge sur l'anneau pour garantir que tous les sites
+		// Diffusion d'un Wakeup rouge via le réseau pour garantir que tous les sites
 		// finiront par recevoir un message rouge et basculer (cf. exo 127/128 du
 		// poly). Sans ça, si l'application n'émet plus de messages post-bascule,
 		// les autres sites ne basculeraient jamais et l'algo ne terminerait pas.
@@ -149,9 +162,9 @@ func (c *Control) handleSnapshotStateResponse(msg *transport.Message) {
 			Type:   transport.TypeControl,
 			Action: transport.ActionWakeup,
 		})
-		c.log.Info("handleSnapshotStateResponse", "Wakeup envoyé sur l'anneau")
+		c.log.Info("handleSnapshotStateResponse", "Wakeup diffusé")
 	} else {
-		// Non-initiateur : envoie [état] sur l'anneau vers l'initiateur (algo 11 ligne 23)
+		// Non-initiateur : diffuse [état] vers l'initiateur (algo 11 ligne 23)
 		siteStateJSON, err := json.Marshal(siteState)
 		if err != nil {
 			c.log.Error("handleSnapshotStateResponse", "marshal siteState: "+err.Error())
@@ -165,7 +178,7 @@ func (c *Control) handleSnapshotStateResponse(msg *transport.Message) {
 				"bilan":     strconv.Itoa(bilanAtBascule),
 			},
 		})
-		c.log.Info("handleSnapshotStateResponse", "[état] envoyé sur l'anneau")
+		c.log.Info("handleSnapshotStateResponse", "[état] diffusé")
 	}
 
 	// Sortie du mode pending
@@ -182,9 +195,10 @@ func (c *Control) handleSnapshotStateResponse(msg *transport.Message) {
 	}
 }
 
-// replayPending re-feed les lignes accumulées pendant le freeze à travers le
-// dispatch normal. Les règles de couleur s'appliquent : les messages blancs
-// reçus pendant qu'on est rouge sont détectés comme préposts à ce moment-là.
+// replayPending re-feed les messages accumulés pendant le freeze à travers
+// HandleMessage (le freeze est fini, pas besoin de repasser par Dispatch).
+// Les règles de couleur s'appliquent : les messages blancs reçus pendant
+// qu'on est rouge sont détectés comme préposts à ce moment-là.
 func (c *Control) replayPending() {
 	queue := c.pendingQueue
 	c.pendingQueue = nil
@@ -299,7 +313,7 @@ func (c *Control) checkSnapshotTermination() {
 	}
 }
 
-// broadcastSnapshotComplete envoie l'EG final sur l'anneau et le pousse aussi
+// broadcastSnapshotComplete diffuse l'EG final via le réseau et le pousse aussi
 // à notre App locale (l'initiateur ne reçoit pas son propre snapshotComplete
 // du fait du self-detect, donc il faut le pousser explicitement).
 func (c *Control) broadcastSnapshotComplete() {
@@ -309,7 +323,7 @@ func (c *Control) broadcastSnapshotComplete() {
 		return
 	}
 
-	// Diffusion sur l'anneau
+	// Diffusion via le réseau
 	c.sendMessage(transport.Message{
 		Type:   transport.TypeControl,
 		Action: transport.ActionSnapshotComplete,
@@ -323,15 +337,15 @@ func (c *Control) broadcastSnapshotComplete() {
 		Data:   map[string]string{"eg": string(egJSON)},
 	})
 
-	c.log.Info("broadcastSnapshotComplete", "EG diffusé sur l'anneau")
+	c.log.Info("broadcastSnapshotComplete", "EG diffusé via le réseau")
 
 	// Reset couleur pour permettre un futur snapshot
 	c.resetSnapshotState()
 }
 
 // sendPrepost gère un message reçu blanc alors qu'on est rouge.
-//   - Si on n'est pas l'initiateur : on emballe dans un ActionPrepost et on envoie
-//     sur l'anneau vers l'initiateur.
+//   - Si on n'est pas l'initiateur : on emballe dans un ActionPrepost et on le diffuse
+//     vers l'initiateur.
 //   - Si on EST l'initiateur : on traite localement (raccourci). Sinon le message
 //     ferait le tour et reviendrait à nous, mais serait droppé par le self-detect
 //     au top de handleControlMessage avant d'atteindre handleSnapshotPrepost,
@@ -354,7 +368,7 @@ func (c *Control) sendPrepost(originalMsg *transport.Message) {
 		Action: transport.ActionPrepost,
 		Data:   map[string]string{"msg": originalMsg.String()},
 	})
-	c.log.Info("sendPrepost", "envoi d'un prépost sur l'anneau")
+	c.log.Info("sendPrepost", "prépost diffusé")
 }
 
 // resetSnapshotState remet les compteurs spécifiques au snapshot et la couleur

@@ -67,6 +67,12 @@ func New(myID int, nbSites int, initiateur bool, io *transport.IO, log *logger.L
 		vectorClock[i] = 0
 	}
 
+	// initialisation de la map des timestamps Lamport reçus de chaque site
+	lamportClocks := make(map[int]int)
+	for i := 1; i <= nbSites; i++ {
+		lamportClocks[i] = 0
+	}
+
 	return &Control{
 		myID:                        myID,
 		nbSites:                     nbSites,
@@ -74,6 +80,7 @@ func New(myID int, nbSites int, initiateur bool, io *transport.IO, log *logger.L
 		log:                         log,
 		clock:                       0,
 		vectorClock:                 vectorClock,
+		LamportClocks:               lamportClocks,
 		queue:                       queue,
 		couleur:                     transport.ColorWhite,
 		initialized:                 initiateur,
@@ -186,7 +193,7 @@ func (c *Control) ReadNextMessage() (*transport.Message, error) {
 func (c *Control) Run() {
 	c.log.Info("Run", fmt.Sprintf("démarrage controle id=%d nbSites=%d", c.myID, c.nbSites))
 
-	// Si non initialisé, rentre dans boucle non init
+	// Si non initialisé, rentre dans la boucle d'attente d'init
 	if !c.initialized {
 		c.WaitingForInit()
 	}
@@ -197,24 +204,26 @@ func (c *Control) Run() {
 			c.log.Error("Run", "lecture message: "+err.Error())
 			continue
 		}
+		c.Dispatch(msg)
+	}
+}
 
-		// Pendant le freeze de l'instantané on n'accepte que la réponse de
-		// l'App à notre requête ActionSnapshotState. Le reste va en file
-		// d'attente, rejoué après la bascule.
-		if c.globalSnapshotPending {
-			if msg.Type == transport.TypeApplication &&
-				msg.Action == transport.ActionSnapshotState &&
-				msg.Data["role"] == "response" &&
-				msg.Sender == c.myID {
-				c.handleSnapshotStateResponse(msg)
-				return
-			}
-			c.pendingQueue = append(c.pendingQueue, msg)
+// Dispatch applique la logique de réception de Run à un message : pendant le
+// freeze de l'instantané on n'accepte que la réponse de l'App à notre requête
+// ActionSnapshotState, le reste est mis en file et rejoué après la bascule.
+func (c *Control) Dispatch(msg *transport.Message) {
+	if c.globalSnapshotPending {
+		if msg.Type == transport.TypeApplication &&
+			msg.Action == transport.ActionSnapshotState &&
+			msg.Data["role"] == "response" &&
+			msg.Sender == c.myID {
+			c.handleSnapshotStateResponse(msg)
 			return
 		}
-
-		c.HandleMessage(msg)
+		c.pendingQueue = append(c.pendingQueue, msg)
+		return
 	}
+	c.HandleMessage(msg)
 }
 
 // isApplicativeRingMessage - vrai pour les messages de "l'application de base"

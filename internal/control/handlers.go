@@ -125,24 +125,37 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 	// un -1 orphelin empêche NbMsgAttendus de revenir à 0. Avec cet ordre, le
 	// message bascule-trigger contribue 0 à Σ.
 	if isApplicativeRingMessage(*msg) {
-		// Bascule rouge (algo 11 lignes 20-23)
-		isBasculeTrigger := msg.Color == transport.ColorRed && c.couleur == transport.ColorWhite
-		if isBasculeTrigger {
-			c.triggerSnapshot(false)
-		}
+		if msg.View != c.view {
+			// Message émis dans une vue antérieure (membership différent) : on
+			// applique quand même l'action (queue SC, relay app…) pour garder
+			// la cohérence du jeu, mais on saute tout le bloc Lai-Yang
+			// (bascule / bilan-- / prépost). L'émission des éventuels acks en
+			// réponse, elle, est comptée normalement par sendMessage, c'est
+			// cohérent : seule la *réception* du vieux message est non comptée,
+			// puisque son émission a été effacée par le reset de bilan au
+			// changement de vue.
+			c.log.Warn("handleControlMessage",
+				fmt.Sprintf("message de vue %d reçu en vue %d : appliqué mais non compté", msg.View, c.view))
+		} else {
+			// Bascule rouge (algo 11 lignes 20-23)
+			isBasculeTrigger := msg.Color == transport.ColorRed && c.couleur == transport.ColorWhite
+			if isBasculeTrigger {
+				c.triggerSnapshot(false)
+			}
 
-		// Décrément du bilan (algo 11 ligne 19, mais reporté après la bascule).
-		// Pour les messages bascule-trigger, on ne décrémente PAS (le receive est
-		// conceptuellement "à" la bascule, donc post-snapshot pour le récepteur).
-		if !isBasculeTrigger {
-			c.bilan--
-		}
+			// Décrément du bilan (algo 11 ligne 19, mais reporté après la bascule).
+			// Pour les messages bascule-trigger, on ne décrémente PAS (le receive est
+			// conceptuellement "à" la bascule, donc post-snapshot pour le récepteur).
+			if !isBasculeTrigger {
+				c.bilan--
+			}
 
-		// Détection de prépost (algo 11 lignes 25-27) : message blanc reçu
-		// alors qu'on est rouge, donc envoyé préclic et reçu postclic. À
-		// retransmettre à l'initiateur.
-		if msg.Color == transport.ColorWhite && c.couleur == transport.ColorRed {
-			c.sendPrepost(msg)
+			// Détection de prépost (algo 11 lignes 25-27) : message blanc reçu
+			// alors qu'on est rouge, donc envoyé préclic et reçu postclic. À
+			// retransmettre à l'initiateur.
+			if msg.Color == transport.ColorWhite && c.couleur == transport.ColorRed {
+				c.sendPrepost(msg)
+			}
 		}
 	}
 
@@ -167,9 +180,11 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 	case transport.ActionDepart:
 		c.handleDepart(msg)
 	case transport.ActionWakeup:
-		// Bascule si on est encore blanc. Le wakeup ne passe pas par le
-		// lestage/bilan pour ne pas polluer le bilan entre snapshots.
-		if c.couleur == transport.ColorWhite {
+		// Bascule si on est encore blanc ET dans la même vue. Le wakeup ne
+		// passe pas par le lestage/bilan pour ne pas polluer le bilan entre
+		// snapshots. Un wakeup d'une ancienne vue ne doit pas déclencher une
+		// bascule : le snapshot correspondant a été avorté.
+		if msg.View == c.view && c.couleur == transport.ColorWhite {
 			c.triggerSnapshot(false)
 		}
 	default:

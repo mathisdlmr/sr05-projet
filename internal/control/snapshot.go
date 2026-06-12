@@ -24,6 +24,7 @@ type ControlSnapshot struct {
 	Bilan         int                `json:"bilan"`
 	VectorClock   map[int]int        `json:"vectorClock"`
 	LamportClocks map[int]int        `json:"lamportClocks"`
+	View          int                `json:"view"`
 }
 
 // SiteState représente l'état complet d'un site (Control + App + horloge)
@@ -66,6 +67,7 @@ func (c *Control) snapshotControlState() ControlSnapshot {
 		Bilan:         c.bilan,
 		VectorClock:   vc,
 		LamportClocks: c.LamportClocks,
+		View:          c.view,
 	}
 }
 
@@ -194,9 +196,13 @@ func (c *Control) replayPending() {
 	}
 }
 
-// handleSnapshotState traite la réception d'un message [état] sur l'anneau
+// handleSnapshotState traite la réception d'un message [état] diffusé par le réseau
 // (algo 11 lignes 30-40). Si on est l'initiateur : on collecte. Sinon : forward.
 func (c *Control) handleSnapshotState(msg *transport.Message) {
+	if msg.View != c.view {
+		c.log.Warn("handleSnapshotState", "message d'une autre vue, ignoré")
+		return
+	}
 	if !c.initiateur {
 		return
 	}
@@ -222,9 +228,13 @@ func (c *Control) handleSnapshotState(msg *transport.Message) {
 	c.checkSnapshotTermination()
 }
 
-// handleSnapshotPrepost traite la réception d'un message [prépost] sur l'anneau
+// handleSnapshotPrepost traite la réception d'un message [prépost] diffusé par le réseau
 // (algo 11 lignes 41-51). Si on est l'initiateur : on collecte. Sinon : forward.
 func (c *Control) handleSnapshotPrepost(msg *transport.Message) {
+	if msg.View != c.view {
+		c.log.Warn("handleSnapshotPrepost", "message d'une autre vue, ignoré")
+		return
+	}
 	if !c.initiateur {
 		return
 	}
@@ -247,6 +257,12 @@ func (c *Control) handleSnapshotPrepost(msg *transport.Message) {
 // push à l'App locale + forward. C'est une extension hors algo 11 strict
 // (cf. design § "Diffusion finale").
 func (c *Control) handleSnapshotComplete(msg *transport.Message) {
+	// Un complete d'une ancienne vue ne doit pas écraser l'EG ni remettre à
+	// blanc un site qui a déjà basculé dans la nouvelle vue.
+	if msg.View != c.view {
+		c.log.Warn("handleSnapshotComplete", "message d'une autre vue, ignoré")
+		return
+	}
 	egJSON := msg.Data["eg"]
 	var eg EG
 	if err := json.Unmarshal([]byte(egJSON), &eg); err != nil {

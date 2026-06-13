@@ -285,19 +285,24 @@ func (c *Control) AddSite(id int) {
 
 // Retrait d'un site
 func (c *Control) RemoveSite(id int) {
-	if id <= 0 {
-		return // invalide
+
+	CSRecheck := false
+	// s'il était en request, il peut être en section critique
+	// et il faut ré-évaluer si c'est libéré à la fin
+	if c.queue[id].Status == statusRequest {
+		CSRecheck = true
 	}
 
-	// clear sa case de la queue - mettre en released
+	// clear sa case de la queue
 	delete(c.queue, id)
 
-	// mettre sa case de vector clock à -1 pour indiquer qu'elle n'est plus active
-	c.vectorClock[id] = -1
-
-	// on retire la case de la map pour cleaner, et on compense dans le comptage
+	// on libère la case de la map
 	delete(c.vectorClock, id)
 
-	// on compense juste dans le comptage du nombre de sites.
+	// maj le nombre de sites
 	c.nbSites--
+
+	if CSRecheck == true {
+		c.checkCriticalSection()
+	}
 }

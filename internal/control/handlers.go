@@ -2,6 +2,7 @@ package control
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/sr05-projet/pkg/transport"
 )
@@ -88,6 +89,15 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 		c.log.Info("handleApplicationMessage", "déclenchement de l'algo 11")
 		c.triggerSnapshot(true)
 	}
+
+	// fermeture de l'app - départ du site
+	if msg.Action == transport.ActionDepart {
+		// Message pour prevenir les autre contrôles
+		c.sendMessage(transport.Message{
+			Type:   transport.TypeControl,
+			Action: transport.ActionDepart,
+		})
+	}
 }
 
 // handleControlMessage - traite les messages venant des autres sites
@@ -144,6 +154,16 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 		c.handleNewSiteAdded(msg)
 	case transport.ActionRequestNewSiteInit:
 		c.handleRequestNewSiteInit(msg)
+	case transport.ActionDepart:
+		// quand un site quitte, au niveau contrôle on le retire de la liste
+		c.RemoveSite(msg.Sender)
+		// et on préviens son net au cas où il y est qq chose à faire
+		c.sendMessage(transport.Message{
+			Type:   transport.TypeNet,
+			Action: transport.ActionDepart,
+			Data:   map[string]string{"id": strconv.Itoa(msg.Sender)},
+		})
+
 	case transport.ActionRequestCS:
 		c.handleRequestCS(msg)
 	case transport.ActionAcknowlegeCS:

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/sr05-projet/pkg/logger"
 	"github.com/sr05-projet/pkg/transport"
@@ -50,6 +51,7 @@ func (c *Net) init() {
 	c.log.Info("init", "Starting Net")
 	c.kill_pid(c.ttout)
 	c.create_tee()
+	time.Sleep(2000000)
 	c.sendMessage(transport.Message{
 		Type:   transport.TypeNet,
 		Action: transport.ActionAddMeToNet,
@@ -140,6 +142,7 @@ func (c *Net) create_tee() {
 		filename(c.myID, "ctl", "in"),
 		filename(c.nextSiteId, "net", "in"),
 	)
+	time.Sleep(2000000)
 	c.log.Debug("create_tee", fmt.Sprintf("Tee created with pid %d", c.myTeePid))
 }
 

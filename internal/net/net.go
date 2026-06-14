@@ -116,7 +116,7 @@ func (c *Net) handleMessage(msg transport.Message) {
 			c.handleElectionMessage(msg)
 		case transport.ActionElectionTerminee:
 			if msg.Sender != c.myID {
-				c.sendMessage(msg) // forward election end if not me
+				c.io.Send(msg.String()) // forward election end if not me
 			}
 			c.handleElectionEnd()
 		case transport.ActionSiteAjoute:

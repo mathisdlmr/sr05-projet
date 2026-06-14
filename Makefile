@@ -31,3 +31,5 @@ check:
 
 clean:
 	rm -rf bin/
+	@chmod +x scripts/clean_all.sh
+	./scripts/clean_all.sh 4444

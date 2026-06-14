@@ -28,9 +28,11 @@ type Net struct {
 	electionGoingOn      int // Id du site proposé a l'election en cours
 	tryingToLeave        bool
 	aboutToLeave         bool
+	ttin                 int
+	ttout                int
 }
 
-func New(myID int, io *transport.IO, log *logger.Logger, nextSiteId int) *Net {
+func New(myID int, io *transport.IO, log *logger.Logger, nextSiteId int, ttin int, ttout int) *Net {
 	return &Net{
 		myID:            myID,
 		io:              io,
@@ -39,18 +41,21 @@ func New(myID int, io *transport.IO, log *logger.Logger, nextSiteId int) *Net {
 		electionGoingOn: -1,
 		tryingToLeave:   false,
 		aboutToLeave:    false,
+		ttin:            ttin,
+		ttout:           ttout,
 	}
 }
 
 func (c *Net) init() {
 	c.log.Info("init", "Starting Net")
+	c.kill_pid(c.ttout)
 	c.create_tee()
 	c.sendMessage(transport.Message{
 		Type:   transport.TypeNet,
 		Action: transport.ActionAddMeToNet,
 		Data:   map[string]string{"idToAdd": strconv.Itoa(c.myID)},
 	})
-	c.kill_tee()
+	c.log.Debug("init", "Init message sent")
 }
 
 func (c *Net) Run() {
@@ -102,6 +107,7 @@ func (c *Net) handleMessage(msg transport.Message) {
 		case transport.ActionConnectToYourNext:
 			nextSiteId, _ := strconv.Atoi(msg.Data["nextSite"])
 			c.nextSiteId = nextSiteId
+			c.kill_tee()
 			c.create_tee()
 			// Message classique
 		case transport.ActionElection: // 		Modify to Type Control and send to control
@@ -137,13 +143,18 @@ func (c *Net) create_tee() {
 	c.log.Debug("create_tee", fmt.Sprintf("Tee created with pid %d", c.myTeePid))
 }
 
-func (c *Net) kill_tee() {
-	cmd := exec.Command("kill", strconv.Itoa(c.myTeePid))
+func (c *Net) kill_pid(pid int) error {
+	cmd := exec.Command("kill", strconv.Itoa(pid))
 	cmd.Stderr = os.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
-	if err := cmd.Start(); err != nil {
-		c.log.Error("kill_tee", err.Error())
+	c.log.Debug("kill pid", fmt.Sprintf("Killing pid %d", pid))
+	return cmd.Start()
 	}
+
+func (c *Net) kill_tee() {
+	time.Sleep(2000000)
+	c.log.Debug("kill_tee", "Killing my tee")
+	c.kill_pid(c.myTeePid)
 }
 
 func (c *Net) insertSite(siteID int) {

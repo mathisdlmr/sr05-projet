@@ -187,7 +187,7 @@ func (c *Net) sendToControl(msg transport.Message) {
 }
 
 func (c *Net) tee_redirect(file_in string, file_out1 string, file_out2 string) int {
-	// c.log.Debug("execCmd", fmt.Sprintf("Running command : %s", command))
+	c.log.Debug("tee_redirect", fmt.Sprintf("files redirected are in %s out1 %s out2 %s", file_in, file_out1, file_out2))
 
 	cmd := exec.Command("tee", file_out1)
 	cmd.Stderr = os.Stderr

@@ -152,7 +152,7 @@ func (c *Net) kill_pid(pid int) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
 	c.log.Debug("kill pid", fmt.Sprintf("Killing pid %d", pid))
 	return cmd.Start()
-	}
+}
 
 func (c *Net) kill_tee() {
 	time.Sleep(2000000)

@@ -38,7 +38,7 @@ trap nettoyer INT QUIT TERM
 
 # Pour chaque site, on créé 3 fifos (in et out) pour l'app, le control et le net
 for i in $(seq 1 $NB_SITES); do
-	rm -f /tmp/in_app$i /tmp/out_app$i /tmp/in_ctl$i /tmp/out_ctl$i
+	rm -f /tmp/in_app$i /tmp/out_app$i /tmp/in_ctl$i /tmp/out_ctl$i /tmp/in_net$i /tmp/out_net$i 
 	mkfifo /tmp/in_app$i  /tmp/out_app$i
 	mkfifo /tmp/in_ctl$i  /tmp/out_ctl$i
 	mkfifo /tmp/in_net$i  /tmp/out_net$i
@@ -47,11 +47,12 @@ done
 # Lancement des processus
 # Le premier control est initiateur ("true")
 for i in $(seq 1 $NB_SITES); do
+	NEXT_SITE=$(( (i % NB_SITES) + 1 ))
 	PORT=$((BASE_PORT + i - 1))
 
 	./bin/application -n "app$i" -id "J$i" -addr localhost -port "$PORT" -web "$ROOT/web" < /tmp/in_app$i > /tmp/out_app$i &
 	./bin/control -n "ctl$i" -id "$i" -sites "$NB_SITES" $([ "$i" -eq 1 ] && echo "true") < /tmp/in_ctl$i > /tmp/out_ctl$i &
-	./bin/net -n "ner$i" -id "$i" -sites "$NB_SITES" < /tmp/in_net$i > /tmp/out_net$i &
+	./bin/net -n "net$i" -id "$i" -nextSiteId "$NEXT_SITE" < /tmp/in_net$i > /tmp/out_net$i &
 done
 
 for i in $(seq 1 $NB_SITES); do

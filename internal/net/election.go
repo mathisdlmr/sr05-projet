@@ -1,6 +1,7 @@
 package net
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/sr05-projet/pkg/transport"
@@ -13,8 +14,10 @@ func (c *Net) handleElectionMessage(msg transport.Message) {
 	if c.electionGoingOn != -1 && siteToAddInMessageId != c.electionGoingOn {
 		// conflict between elections
 		if siteToAddInMessageId < c.electionGoingOn {
+			c.log.Debug("handleElectionMessage", "Conflict entre election, on ecrase l'election en cours")
 			c.electionGoingOn = siteToAddInMessageId
 		} else {
+			c.log.Debug("handleElectionMessage", fmt.Sprintf("Conflict entre election, stockage de l'election du site %d", siteToAddInMessageId))
 			c.electionStartPending = append(c.electionStartPending, siteToAddInMessageId) // Store election for later
 			return
 		}

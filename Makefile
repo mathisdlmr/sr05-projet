@@ -22,8 +22,7 @@ run: build
 	@chmod +x scripts/local_net.sh
 	./scripts/local_net.sh 4444
 
-run-ctl: 
-	build
+run-ctl: build
 	@chmod +x scripts/local_ctl.sh
 	./scripts/local_ctl.sh 4444
 

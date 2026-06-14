@@ -311,18 +311,30 @@ func (c *Control) RemoveSite(id int) {
 		return // invalide
 	}
 
-	// clear sa case de la queue - mettre en released
+	CSRecheck := false
+	// s'il était en request, il peut être en section critique
+	// et il faut ré-évaluer si c'est libéré à la fin
+	if c.queue[id].Status == statusRequest {
+		CSRecheck = true
+	}
+
+	// clear sa case de la queue
 	delete(c.queue, id)
 
-	// mettre sa case de vector clock à -1 pour indiquer qu'elle n'est plus active
-	c.vectorClock[id] = -1
-
-	// on retire la case de la map pour cleaner, et on compense dans le comptage
+	// on libère la case de la map
 	delete(c.vectorClock, id)
 
-	// on compense juste dans le comptage du nombre de sites.
+	// maj le nombre de sites
 	c.nbSites--
+
+	// changement de membership : nouvelle vue (reset bilan / abort snapshot).
 	c.onViewChange()
+
+	// si le site partant était en request, il pouvait être en section
+	// critique : on ré-évalue si elle est désormais libérée.
+	if CSRecheck {
+		c.checkCriticalSection()
+	}
 }
 
 // onViewChange - toute modification du membership ouvre une nouvelle vue.

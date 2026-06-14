@@ -57,6 +57,8 @@ Une fois le parrain élu, celui-ci reconfigure lui-même ses liens : il interrom
 
 On obtient alors un fonctionnement *complètement réparti*, à l'exception du script qui crée l'anneau de départ. Cette propriété rend d'ailleurs la solution indépendante de la topologie initiale : elle fonctionnerait vraisemblablement quel que soit le format du réseau (à confirmer), pourvu que deux conditions soient réunies : des canaux *FIFO* (pour ne perdre aucun message) et un mécanisme permettant à un site extérieur de *demander* à rejoindre le réseau.
 
+Nous estimons que cette approche ressemble également plus à un réseau réel à la couche application, dans lequel les sites gèreraient eux-mêmes chacun à quel destinataire ils envient leurs messages.
+
 Cette approche impose toutefois un certain nombre de précautions, que l'implémentation devra traiter :
 
 - garantir qu'*aucun message n'est perdu* pendant la reconfiguration

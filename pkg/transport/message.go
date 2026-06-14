@@ -115,6 +115,7 @@ type Message struct {
 	VectorClock map[int]int // horloge vectorielle : map d'ID du site vers sa valeur
 	Color       string      // lestage Lai-Yang : "" si non-applicatif, ColorWhite ou ColorRed sinon
 	Sender      int
+	ToControl   bool // Est-ce un message destiné a mon controle ou qui vient de mon controle
 	Data        map[string]string
 }
 
@@ -134,6 +135,7 @@ func ParseMessage(msg string) (*Message, error) {
 	var msgAction Action
 	var msgVectorClock map[int]int
 	color := ""
+	toControl := false
 	data := make(map[string]string)
 
 	for _, pair := range pairs {
@@ -151,6 +153,10 @@ func ParseMessage(msg string) (*Message, error) {
 			case "timestamp":
 				if parsed, err := strconv.Atoi(parts[1]); err == nil {
 					timestamp = &parsed
+				}
+			case "tocontrol":
+				if parts[1] == "true" {
+					toControl = true
 				}
 			case "vectorClock":
 				// Parse vectorClock comme map: clé1,valeur1;clé2,valeur2;...
@@ -186,6 +192,7 @@ func ParseMessage(msg string) (*Message, error) {
 		Color:       color,
 		Sender:      sender,
 		Data:        data,
+		ToControl:   toControl,
 	}, nil
 }
 
@@ -202,6 +209,14 @@ func (m Message) String() string {
 	if m.Timestamp != nil {
 		builder.WriteString(fmt.Sprintf("%s%stimestamp%s%d", field, kv, kv, *m.Timestamp))
 	}
+	toControl := ""
+	if m.ToControl {
+		toControl = "true"
+	} else {
+		toControl = "false"
+	}
+	builder.WriteString(fmt.Sprintf("%s%stocontrol%s%s", field, kv, kv, toControl))
+
 	// Sérialiser vectorClock map comme clé:valeur;clé:valeur
 	if len(m.VectorClock) > 0 {
 		parts := make([]string, 0, len(m.VectorClock))

@@ -89,7 +89,7 @@ func (c *Net) handleMessage(msg transport.Message) {
 	case transport.TypeApplication:
 		return // ça devrait pas arriver
 	case transport.TypeControl:
-		if msg.Sender == c.myID { // Send control message on the ring
+		if msg.Sender == c.myID && !msg.ToControl { // Send control message on the ring
 			switch msg.Action {
 			case transport.ActionDepart:
 				c.TryLeavingIfPossible()
@@ -125,7 +125,7 @@ func (c *Net) handleMessage(msg transport.Message) {
 
 		default: // forward vers contrôle et vers net
 			if msg.Sender != c.myID {
-				c.sendMessage(msg) // forward on ring
+				c.io.Send(msg.String()) // forward on ring
 			}
 			c.sendToControl(msg)
 		}
@@ -179,22 +179,8 @@ func (c *Net) removeSite(newNextSiteId int) {
 
 func (c *Net) sendToControl(msg transport.Message) {
 	msg.Type = transport.TypeControl
-	c.sendMessage(msg) // Send to control
-	// Type to control
-	// Send the message
-}
-
-func (c *Net) execCmd(command string) int {
-	c.log.Debug("execCmd", fmt.Sprintf("Running command : %s", command))
-
-	cmd := exec.Command(os.Getenv("SHELL"), "-c", command)
-	cmd.Stderr = os.Stderr
-	cmd.SysProcAttr = &syscall.SysProcAttr{}
-	if err := cmd.Start(); err != nil {
-		c.log.Error("execCmd", err.Error())
-		return 0
-	}
-	return cmd.Process.Pid
+	msg.ToControl = true
+	c.io.Send(msg.String())
 }
 
 func (c *Net) tee_redirect(file_in string, file_out1 string, file_out2 string) int {

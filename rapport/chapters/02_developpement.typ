@@ -22,7 +22,7 @@ L'obstacle principal à ce stade est d'assurer qu'aucun message impactant l'éta
 - Un freeze global au niveau control pendant l'ajout du nouveau site, pour éviter complètement les problèmes de messages perdus.
 - Le nouveau site met en queue tous les messages qu'il reçoit jusqu'à recevoir son initialisation, puis les traite en excluant ceux qui sont antérieurs à la snapshot du parrain, requérant une nouvelle horloge qui contient les horloges de Lamport de tous les sites, pour ignorer uniquement les messages non reçus même si un message causalement plus récent a bien été reçu.
 
-Nous choisissons cette seconde approche, qui permet de traiter le problème plus finement, puisqu'il ne nécessite pas de freeze tous les sites, tout en ne requérant pas plus de développement.
+Nous choisissons cette seconde approche, qui permet de traiter le problème plus finement, puisqu'il ne nécessite pas de freeze tous les sites, tout en ne requérant pas plus de développement. Pour permettre d'initialiser le premier site sans qu'il se bloque en attendant une initialisation externe, on ajoute l'option d'un lancement en mode "initisateur".
 
 === Impact sur l'exclusion mutuelle et les horloges
 

@@ -31,9 +31,10 @@ type Net struct {
 	aboutToLeave         bool
 	ttin                 int
 	ttout                int
+	static               bool
 }
 
-func New(myID int, io *transport.IO, log *logger.Logger, nextSiteId int, ttin int, ttout int) *Net {
+func New(myID int, io *transport.IO, log *logger.Logger, nextSiteId int, ttin int, ttout int, static bool) *Net {
 	return &Net{
 		myID:            myID,
 		io:              io,
@@ -44,11 +45,16 @@ func New(myID int, io *transport.IO, log *logger.Logger, nextSiteId int, ttin in
 		aboutToLeave:    false,
 		ttin:            ttin,
 		ttout:           ttout,
+		static:          static,
 	}
 }
 
 func (c *Net) init() {
 	c.log.Info("init", "Starting Net")
+	if c.static {
+		c.log.Debug("init", "Net started in static mode")
+		return
+	}
 	c.kill_pid(c.ttout)
 	c.create_tee()
 	time.Sleep(2000000)

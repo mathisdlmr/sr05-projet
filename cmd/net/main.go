@@ -19,10 +19,11 @@ func main() {
 	nextSiteId := flag.Int("next", 1, "identifiant du site suivant (ex: J2)")
 	temporary_tee_in := flag.Int("ttin", 1, "pid of temporary in tee")
 	temporary_tee_out := flag.Int("ttout", 1, "pid of temporary out tee")
+	static := flag.Bool("static", false, "flag to skip election phase for startup sites")
 	flag.Parse()
 
 	log := logger.New(*name)
 	io := transport.NewIO()
-	net := net.New(*id, io, log, *nextSiteId, *temporary_tee_in, *temporary_tee_out)
+	net := net.New(*id, io, log, *nextSiteId, *temporary_tee_in, *temporary_tee_out, *static)
 	net.Run()
 }

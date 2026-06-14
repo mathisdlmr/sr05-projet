@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 #
 # Script pour faire tourner notre système réparti en local
-# Topologie : anneau de N=NB_SITES contrôles, chaque site embarque
-# son application (avec serveur web intégré depuis la fusion app+server).
+#
+# Topologie en anneau de N=NB_SITES 
+# Chaque site embarque un binaire Go `net` pour gérer la couche réseau, un binaire Go `control`
+# pour gérer les mécanismes de système réparti du cours (snapshot, horloges, etc.) et
+# une `application`` (avec serveur web intégré depuis la fusion app+server)
 #
 # Pipeline pour chaque site i :
-#   browser <--WS--> application_i (embarque le serveur HTTP/WS)
+#   browser        <---WS--->   application_i (embarque le serveur HTTP/WS)
 #   application_i  --stdout-->  control_i  (FIFO out_app_i -> in_ctl_i)
-#   control_i      --stdout-->  application_i (local)  +  net_i
-#   net_i          --stdout-->  control_i (local)  +  net_{i+1} (anneau)
+#   control_i      --stdout-->  application_i (local) + net_i
+#   net_i          --stdout-->  control_i (local) + net_{i+1} (anneau)
 
 NB_SITES=3
 BASE_PORT=${1:-4444}
@@ -45,14 +48,14 @@ for i in $(seq 1 $NB_SITES); do
 done
 
 # Lancement des processus
-# Le premier control est initiateur ("true")
+# Ces processus sont marqués comme "static" pour être lancés comme lors de la première version et sans mécanisme de parainage
 for i in $(seq 1 $NB_SITES); do
 	NEXT_SITE=$(( (i % NB_SITES) + 1 ))
 	PORT=$((BASE_PORT + i - 1))
 
 	./bin/application -n "app$i" -id "J$i" -addr localhost -port "$PORT" -web "$ROOT/web" < /tmp/in_app$i > /tmp/out_app$i &
-	./bin/control -n "ctl$i" -id "$i" -sites "$NB_SITES" $([ "$i" -eq 1 ] && echo "true") < /tmp/in_ctl$i > /tmp/out_ctl$i &
-	./bin/net -n "net$i" -id "$i" -nextSiteId "$NEXT_SITE" < /tmp/in_net$i > /tmp/out_net$i &
+	./bin/control -n "ctl$i" -id "$i" -sites "$NB_SITES" -isInitiator < /tmp/in_ctl$i > /tmp/out_ctl$i &
+	./bin/net -n "net$i" -id "$i" -next "$NEXT_SITE" -static < /tmp/in_net$i > /tmp/out_net$i &
 done
 
 for i in $(seq 1 $NB_SITES); do

@@ -13,9 +13,9 @@ mkfifo /tmp/in_net$i /tmp/out_net$i
 
 echo "Starting cat"
 cat /tmp/out_net$i & PID1=$!
-sleep 1
+sleep 0.5
 echo "Starting net"
 ./bin/net -n net$i -id $i -next $n -ttout $PID1 \
         < /tmp/in_net$i > /tmp/out_net$i &
-sleep 1
+sleep 0.5
 tee /tmp/in_net$i

@@ -78,6 +78,7 @@ func New(myID int, nbSites int, initiateur bool, io *transport.IO, log *logger.L
 		couleur:                     transport.ColorWhite,
 		initialized:                 initiateur,
 		awaitingInitSnapshotForSite: -1,
+		LamportClocks:               make(map[int]int),
 	}
 }
 

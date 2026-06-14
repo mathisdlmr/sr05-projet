@@ -63,17 +63,17 @@ func (c *Net) handleMessage(msg transport.Message) {
 			msg.Type = transport.TypeNet
 			c.io.Send(msg.String())
 		}
-	case transport.TypeNet:
-		switch msg.Action {
-		case transport.ActionConnectToYourNext:
-		case ActionAddMeToNet :       
-		case ActionConnectToYourNext :
-		                       // Message classique
-		case ActionElection         : // 		Modify to Type Control and send to control
-		case ActionElectionTerminee : // 		Modify to TypeNet and send to Net ?
-		// Message NetOnly
-		// 		Action sur le message
-
+	// case transport.TypeNet:
+	// 	switch msg.Action {
+	// 	case transport.ActionConnectToYourNext:
+	// 	case ActionAddMeToNet :       
+	// 	case ActionConnectToYourNext :
+	// 	                       // Message classique
+	// 	case ActionElection         : // 		Modify to Type Control and send to control
+	// 	case ActionElectionTerminee : // 		Modify to TypeNet and send to Net ?
+	// 	// Message NetOnly
+	// 	// 		Action sur le message
+	// 	}
 	}
 }
 

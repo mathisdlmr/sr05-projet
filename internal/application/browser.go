@@ -94,13 +94,13 @@ func (a *App) handleFromBrowser(raw string) {
 	a.log.Info("handleFromBrowser", "SC demandée pour: "+action.Action)
 }
 
-// rejectIfNotEnoughPlayers - vérifie qu'il y a assez de joueurs (3) en partie
+// rejectIfNotEnoughPlayers - vérifie qu'il y a assez de joueureuses (3) en partie
 func (a *App) rejectIfNotEnoughPlayers(action string) bool {
 	nb := len(a.state.Players)
 	if nb >= 3 {
 		return false
 	}
-	msg := fmt.Sprintf("Il faut au moins %d joueurs pour %s (actuellement %d). "+"Faites rejoindre un nouveau site avec : ./scripts/join_site.sh <id_d_un_site_pas_utilise> <id_d_un_site_en_partie>", MinPlayers, action, nb)
+	msg := fmt.Sprintf("Il faut au moins 3 joueureuses pour %s (actuellement %d). "+"Faites rejoindre un nouveau site avec : ./scripts/join_site.sh <id_d_un_site_pas_utilise> <id_d_un_site_en_partie>", action, nb)
 	a.pushEvent(map[string]interface{}{
 		"type":    "actionRejected",
 		"reason":  "not_enough_players",

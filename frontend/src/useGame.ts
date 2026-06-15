@@ -72,7 +72,7 @@ function reducer(state: GameState, action: Action): GameState {
         if (players[action.playerId]) {
           players[action.playerId] = { ...players[action.playerId], alive: false, role: action.role }
         }
-        message = `${action.playerId} a quitté la partie — il/elle était ${roleLabel(action.role)}.`
+        message = `${action.playerId} a quitté la partie — ielle était ${roleLabel(action.role)}.`
       } else {
         delete players[action.playerId]
         message = `${action.playerId} a quitté le lobby.`

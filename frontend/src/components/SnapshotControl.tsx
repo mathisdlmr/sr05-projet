@@ -65,7 +65,7 @@ function SiteCard({ siteId, site }: { siteId: string; site: SnapshotSiteState })
           </code>
         </div>
         {playersList && (
-          <div><strong>Joueurs :</strong> {playersList}</div>
+          <div><strong>Joueureuses :</strong> {playersList}</div>
         )}
         {votesList && (
           <div><strong>Votes :</strong> {votesList}</div>

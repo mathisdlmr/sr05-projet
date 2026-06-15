@@ -89,7 +89,7 @@ export function EndPhase({ state, send }: Props) {
 
       {notEnoughPlayers && (
         <p style={{ color: 'var(--gold)', textAlign: 'center', marginTop: '8px', fontSize: '0.875rem' }}>
-          Il faut au moins 3 joueurs pour relancer ({players.length}/3).
+          Il faut au moins 3 joueureuses pour relancer ({players.length}/3).
           Faites rejoindre un nouveau site avec :{' '}
           <code>./scripts/join_site.sh &lt;id_d_un_site_pas_utilise&gt; &lt;id_d_un_site_en_partie&gt;</code>
         </p>

@@ -11,6 +11,7 @@ package application
 
 import (
 	stdio "io"
+	"os"
 
 	"github.com/sr05-projet/internal/server"
 	"github.com/sr05-projet/pkg/logger"
@@ -247,5 +248,10 @@ func (a *App) handleFromControl(line string) {
 	// Initialisation d'état pour un nouveau site qui rejoint en cours de partie
 	case transport.ActionNewSiteInit:
 		a.handleNewSiteInit(msg.Data["state"])
+
+	// Notre départ a été propagé aux autres sites et au net local : on peut se terminer
+	case transport.ActionDepartConfirmed:
+		a.log.Info("handleFromControl", "départ confirmé, arrêt de l'application")
+		os.Exit(0)
 	}
 }

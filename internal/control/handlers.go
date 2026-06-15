@@ -87,6 +87,11 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 			Type:   transport.TypeControl,
 			Action: transport.ActionDepart,
 		})
+		// On confirme à l'app locale que son départ a été propagé et qu'elle peut se terminer à son tour
+		c.sendMessage(transport.Message{
+			Type:   transport.TypeApplication,
+			Action: transport.ActionDepartConfirmed,
+		})
 		// on exit
 		os.Exit(0)
 	}

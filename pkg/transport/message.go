@@ -106,6 +106,7 @@ const (
 	ActionSiteAjoute Action = "siteAjoute" // de net vers controle et de controle vers application
 
 	ActionDepart Action = "depart" // contient l'id du site qui part
+	ActionDepartConfirmed Action = "departConfirmed" // Permet au control d'un site en train de quitter le réseau que son application peut s'arrêter sans créé de conflit
 )
 
 // Message représente un type de message avec horodatage, expéditeur et des données structurées.

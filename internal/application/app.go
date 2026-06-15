@@ -120,7 +120,7 @@ func (a *App) handleBrowserDisconnect() {
 		return
 	}
 	a.log.Info("handleBrowserDisconnect", "navigateur déconnecté, envoi depart")
-	a.sendDepart()
+	// a.sendDepart() as for some people WebSocket is unstable, doesn't quit the game every time a websocket disconnects
 }
 
 // sendDepart - envoie un message depart au control local

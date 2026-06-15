@@ -2,7 +2,6 @@ package control
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/sr05-projet/pkg/transport"
 )
@@ -35,7 +34,7 @@ func (c *Control) updateVectorClock(vc map[int]int) {
 // handleApplicationMessage - traite les messages venant de l'application (locale)
 func (c *Control) handleApplicationMessage(msg *transport.Message) {
 
-	// Ignore les message destinés à l'application provenant du control précédent dans l'anneau
+	// Ignore les message destinés à l'application provenant d'autres sites du réseau
 	// Les messages de types application sont seulement a destination interne aux sites
 	if msg.Sender != c.myID {
 		return
@@ -72,12 +71,27 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 		}
 	}
 
+	if msg.Action == transport.ActionDepart { // le joueur local s'en va : on prévient tout le monde
+		c.sendMessage(transport.Message{
+			Type:   transport.TypeControl,
+			Action: transport.ActionDepart,
+			Data:   msg.Data, // contient id = identifiant joueur (ex "J2")
+		})
+	}
+
+	// Réponse de l'app à une demande de snapshot d'état (init filleul hors mode freeze)
+	if msg.Action == transport.ActionSnapshotState && msg.Data["role"] == "response" {
+		c.handleSnapshotStateResponse(msg)
+		return
+	}
+
 	if msg.Action == transport.ActionStartSnapshot { // déclencheur snapshot depuis le navigateur
 		// Si on est déjà rouge un snapshot tourne (le nôtre ou celui d'un
-		// autre initiateur reçu via Wakeup). On refuse : sinon deux initiateurs
-		// simultanés se deadlockent, le premier intercepte les [état] avant
-		// qu'ils n'atteignent le second.
-		if c.couleur == transport.ColorRed {
+		// autre initiateur reçu via Wakeup), ou si une init de filleul est en attente,
+		// on refuse : sinon deux initiateurs simultanés se deadlockent, le premier
+		// intercepte les [état] avant qu'ils n'atteignent le second. Idem pour l'init :
+		// snapshot et init utilisent le même round-trip app, ils ne peuvent pas coexister.
+		if c.couleur == transport.ColorRed || c.awaitingInitSnapshotForSite != -1 {
 			c.log.Warn("handleApplicationMessage", "snapshot refusé : déjà en cours")
 			c.sendMessage(transport.Message{
 				Type:   transport.TypeApplication,
@@ -89,15 +103,6 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 		c.log.Info("handleApplicationMessage", "déclenchement de l'algo 11")
 		c.triggerSnapshot(true)
 	}
-
-	// fermeture de l'app - départ du site
-	if msg.Action == transport.ActionDepart {
-		// Message pour prevenir les autre contrôles
-		c.sendMessage(transport.Message{
-			Type:   transport.TypeControl,
-			Action: transport.ActionDepart,
-		})
-	}
 }
 
 // handleControlMessage - traite les messages venant des autres sites
@@ -107,7 +112,7 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 		return
 	}
 	if msg.Sender == c.myID {
-		c.log.Debug("Run", fmt.Sprintf("control_message propre de retour, ignoré (anneau) timestamp=%d", *msg.Timestamp))
+		c.log.Debug("Run", fmt.Sprintf("control_message propre de retour, ignoré (diffusion) timestamp=%d", *msg.Timestamp))
 		return
 	}
 	c.log.Info("Run", fmt.Sprintf("message de contrôle reçu: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
@@ -127,24 +132,37 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 	// un -1 orphelin empêche NbMsgAttendus de revenir à 0. Avec cet ordre, le
 	// message bascule-trigger contribue 0 à Σ.
 	if isApplicativeRingMessage(*msg) {
-		// Bascule rouge (algo 11 lignes 20-23)
-		isBasculeTrigger := msg.Color == transport.ColorRed && c.couleur == transport.ColorWhite
-		if isBasculeTrigger {
-			c.triggerSnapshot(false)
-		}
+		if msg.View != c.view {
+			// Message émis dans une vue antérieure (membership différent) : on
+			// applique quand même l'action (queue SC, relay app…) pour garder
+			// la cohérence du jeu, mais on saute tout le bloc Lai-Yang
+			// (bascule / bilan-- / prépost). L'émission des éventuels acks en
+			// réponse, elle, est comptée normalement par sendMessage, c'est
+			// cohérent : seule la *réception* du vieux message est non comptée,
+			// puisque son émission a été effacée par le reset de bilan au
+			// changement de vue.
+			c.log.Warn("handleControlMessage",
+				fmt.Sprintf("message de vue %d reçu en vue %d : appliqué mais non compté", msg.View, c.view))
+		} else {
+			// Bascule rouge (algo 11 lignes 20-23)
+			isBasculeTrigger := msg.Color == transport.ColorRed && c.couleur == transport.ColorWhite
+			if isBasculeTrigger {
+				c.triggerSnapshot(false)
+			}
 
-		// Décrément du bilan (algo 11 ligne 19, mais reporté après la bascule).
-		// Pour les messages bascule-trigger, on ne décrémente PAS (le receive est
-		// conceptuellement "à" la bascule, donc post-snapshot pour le récepteur).
-		if !isBasculeTrigger {
-			c.bilan--
-		}
+			// Décrément du bilan (algo 11 ligne 19, mais reporté après la bascule).
+			// Pour les messages bascule-trigger, on ne décrémente PAS (le receive est
+			// conceptuellement "à" la bascule, donc post-snapshot pour le récepteur).
+			if !isBasculeTrigger {
+				c.bilan--
+			}
 
-		// Détection de prépost (algo 11 lignes 25-27) : message blanc reçu
-		// alors qu'on est rouge, donc envoyé préclic et reçu postclic. À
-		// retransmettre à l'initiateur.
-		if msg.Color == transport.ColorWhite && c.couleur == transport.ColorRed {
-			c.sendPrepost(msg)
+			// Détection de prépost (algo 11 lignes 25-27) : message blanc reçu
+			// alors qu'on est rouge, donc envoyé préclic et reçu postclic. À
+			// retransmettre à l'initiateur.
+			if msg.Color == transport.ColorWhite && c.couleur == transport.ColorRed {
+				c.sendPrepost(msg)
+			}
 		}
 	}
 
@@ -154,16 +172,6 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 		c.handleNewSiteAdded(msg)
 	case transport.ActionRequestNewSiteInit:
 		c.handleRequestNewSiteInit(msg)
-	case transport.ActionDepart:
-		// quand un site quitte, au niveau contrôle on le retire de la liste
-		c.RemoveSite(msg.Sender)
-		// et on préviens son net au cas où il y est qq chose à faire
-		c.sendMessage(transport.Message{
-			Type:   transport.TypeNet,
-			Action: transport.ActionDepart,
-			Data:   map[string]string{"id": strconv.Itoa(msg.Sender)},
-		})
-
 	case transport.ActionRequestCS:
 		c.handleRequestCS(msg)
 	case transport.ActionAcknowlegeCS:
@@ -176,13 +184,28 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 		c.handleSnapshotPrepost(msg)
 	case transport.ActionSnapshotComplete:
 		c.handleSnapshotComplete(msg)
+	case transport.ActionDepart:
+		c.handleDepart(msg)
 	case transport.ActionWakeup:
-		// Bascule si on est encore blanc. Le wakeup ne passe pas par le
-		// lestage/bilan pour ne pas polluer le bilan entre snapshots.
-		if c.couleur == transport.ColorWhite {
+		// Bascule si on est encore blanc ET dans la même vue. Le wakeup ne
+		// passe pas par le lestage/bilan pour ne pas polluer le bilan entre
+		// snapshots. Un wakeup d'une ancienne vue ne doit pas déclencher une
+		// bascule : le snapshot correspondant a été avorté.
+		if msg.View == c.view && c.couleur == transport.ColorWhite {
 			c.triggerSnapshot(false)
 		}
 	default:
 		c.log.Warn("Run", fmt.Sprintf("action inconnue dans message de contrôle: %s", msg.Action))
 	}
+}
+
+// handleDepart - un site annonce son départ : on le retire du membership
+// puis on relaie à l'app locale pour qu'elle marque le joueur comme mort.
+func (c *Control) handleDepart(msg *transport.Message) {
+	c.RemoveSite(msg.Sender)
+	c.sendMessage(transport.Message{
+		Type:   transport.TypeApplication,
+		Action: transport.ActionDepart,
+		Data:   msg.Data,
+	})
 }

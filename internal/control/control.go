@@ -42,6 +42,7 @@ type Control struct {
 	couleur               string               // ColorWhite par défaut, ColorRed après bascule
 	initiateur            bool                 // vrai sur le site qui a déclenché le snapshot
 	bilan                 int                  // nb_emissions - nb_receptions de messages applicatifs
+	view                  int                  // numéro de vue : version courante de la liste des membres
 	nbEtatsAttendus       int                  // utilisé chez l'initiateur uniquement
 	nbMsgAttendus         int                  // utilisé chez l'initiateur uniquement
 	globalSnapshotPending bool                 // vrai pendant l'attente de réponse SnapshotState de l'App
@@ -67,6 +68,12 @@ func New(myID int, nbSites int, initiateur bool, io *transport.IO, log *logger.L
 		vectorClock[i] = 0
 	}
 
+	// initialisation de la map des timestamps Lamport reçus de chaque site
+	lamportClocks := make(map[int]int)
+	for i := 1; i <= nbSites; i++ {
+		lamportClocks[i] = 0
+	}
+
 	return &Control{
 		myID:                        myID,
 		nbSites:                     nbSites,
@@ -74,11 +81,11 @@ func New(myID int, nbSites int, initiateur bool, io *transport.IO, log *logger.L
 		log:                         log,
 		clock:                       0,
 		vectorClock:                 vectorClock,
+		LamportClocks:               lamportClocks,
 		queue:                       queue,
 		couleur:                     transport.ColorWhite,
 		initialized:                 initiateur,
 		awaitingInitSnapshotForSite: -1,
-		LamportClocks:               make(map[int]int),
 	}
 }
 
@@ -115,6 +122,10 @@ func (c *Control) Initialize(state SiteState) {
 	for id, ts := range state.ControlState.LamportClocks {
 		c.LamportClocks[id] = ts
 	}
+
+	// On hérite de la vue du parrain avant de s'ajouter comme site actif.
+	// AddSite va incrémenter la vue de 1 (notre arrivée = nouveau membership).
+	c.view = state.ControlState.View
 
 	// On s'ajoute comme site actif
 	c.AddSite(c.myID)
@@ -187,7 +198,7 @@ func (c *Control) ReadNextMessage() (*transport.Message, error) {
 func (c *Control) Run() {
 	c.log.Info("Run", fmt.Sprintf("démarrage controle id=%d nbSites=%d", c.myID, c.nbSites))
 
-	// Si non initialisé, rentre dans boucle non init
+	// Si non initialisé, rentre dans la boucle d'attente d'init
 	if !c.initialized {
 		c.WaitingForInit()
 	}
@@ -198,24 +209,26 @@ func (c *Control) Run() {
 			c.log.Error("Run", "lecture message: "+err.Error())
 			continue
 		}
+		c.Dispatch(msg)
+	}
+}
 
-		// Pendant le freeze de l'instantané on n'accepte que la réponse de
-		// l'App à notre requête ActionSnapshotState. Le reste va en file
-		// d'attente, rejoué après la bascule.
-		if c.globalSnapshotPending {
-			if msg.Type == transport.TypeApplication &&
-				msg.Action == transport.ActionSnapshotState &&
-				msg.Data["role"] == "response" &&
-				msg.Sender == c.myID {
-				c.handleSnapshotStateResponse(msg)
-				return
-			}
-			c.pendingQueue = append(c.pendingQueue, msg)
+// Dispatch applique la logique de réception de Run à un message : pendant le
+// freeze de l'instantané on n'accepte que la réponse de l'App à notre requête
+// ActionSnapshotState, le reste est mis en file et rejoué après la bascule.
+func (c *Control) Dispatch(msg *transport.Message) {
+	if c.globalSnapshotPending {
+		if msg.Type == transport.TypeApplication &&
+			msg.Action == transport.ActionSnapshotState &&
+			msg.Data["role"] == "response" &&
+			msg.Sender == c.myID {
+			c.handleSnapshotStateResponse(msg)
 			return
 		}
-
-		c.HandleMessage(msg)
+		c.pendingQueue = append(c.pendingQueue, msg)
+		return
 	}
+	c.HandleMessage(msg)
 }
 
 // isApplicativeRingMessage - vrai pour les messages de "l'application de base"
@@ -243,10 +256,17 @@ func (c *Control) sendMessage(m transport.Message) {
 	if isApplicativeRingMessage(m) {
 		// Lestage Lai-Yang : on tague avec la couleur courante (algo 11 ligne 15).
 		m.Color = c.couleur
-		// L'algo ajoute +1 par envoi. Notre anneau avec tee diffuse à nbSites-1
-		// sites en un seul envoi physique (chacun décrémentera de 1), donc on
-		// compense pour garder Σ bilan = nb_msg_en_transit.
+		// L'algo du cours compte +1 par envoi point-à-point. Chez nous une
+		// émission = une diffusion (contrat net : nbSites-1 livraisons, peu
+		// importe la topologie), donc +nbSites-1 pour garder
+		// Σ bilan = nb de livraisons en attente.
 		c.bilan += c.nbSites - 1
+	}
+
+	// Tagge le numéro de vue sur les messages de contrôle (ring) pour que
+	// les récepteurs puissent distinguer les messages d'une vue périmée.
+	if m.Type == transport.TypeControl {
+		m.View = c.view
 	}
 
 	// incremente l'horloge vectorielle aussi
@@ -282,10 +302,14 @@ func (c *Control) AddSite(id int) {
 		}
 	}
 	c.nbSites++
+	c.onViewChange()
 }
 
 // Retrait d'un site
 func (c *Control) RemoveSite(id int) {
+	if id <= 0 {
+		return // invalide
+	}
 
 	CSRecheck := false
 	// s'il était en request, il peut être en section critique
@@ -303,7 +327,41 @@ func (c *Control) RemoveSite(id int) {
 	// maj le nombre de sites
 	c.nbSites--
 
-	if CSRecheck == true {
+	// changement de membership : nouvelle vue (reset bilan / abort snapshot).
+	c.onViewChange()
+
+	// si le site partant était en request, il pouvait être en section
+	// critique : on ré-évalue si elle est désormais libérée.
+	if CSRecheck {
 		c.checkCriticalSection()
+	}
+}
+
+// onViewChange - toute modification du membership ouvre une nouvelle vue.
+// Les comptages de l'algo 11 repartent de zéro (les messages de l'ancienne
+// vue sont identifiables par leur tag et ne seront pas comptés), et un
+// snapshot en cours est avorté : son EG mélangerait deux memberships.
+func (c *Control) onViewChange() {
+	c.view++
+	c.bilan = 0
+	if c.couleur == transport.ColorRed {
+		c.log.Warn("onViewChange", "changement de membership pendant un snapshot : abort")
+		if c.initiateur {
+			c.sendMessage(transport.Message{
+				Type:   transport.TypeApplication,
+				Action: transport.ActionSnapshotRejected,
+				Data:   map[string]string{"reason": "membership changed during snapshot"},
+			})
+		}
+		c.resetSnapshotState()
+		// Si l'abort survient pendant le freeze (entre bascule et réponse
+		// App), sortir aussi du mode freeze et rejouer la file, sinon le
+		// control resterait à tout mettre en attente.
+		c.globalSnapshotPending = false
+		c.pendingControlSnap = nil
+		// Une éventuelle init de filleul en attente est abandonnée aussi :
+		// son état de référence date de l'ancienne vue.
+		c.awaitingInitSnapshotForSite = -1
+		c.replayPending()
 	}
 }

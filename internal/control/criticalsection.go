@@ -16,21 +16,21 @@ func (c *Control) localStartCriticalSection() {
 }
 
 // checkCriticalSection - vérifie si ce site peut entrer en SC :
-// aucun autre site ne doit avoir une requête avec une estampille plus grande
-// (au sens de la relation <_K vue dans le cours)
+// aucun autre site ne doit avoir une requête avec une estampille plus petite
+// (au sens de la relation <_K vue dans le cours).
+// On itère sur la map pour couvrir les ids non contigus (après un départ de site).
 func (c *Control) checkCriticalSection() {
 	if c.queue[c.myID].Status != statusRequest {
 		return
 	}
 	mine := c.queue[c.myID]
-	for i := 1; i <= c.nbSites; i++ {
-		if i == c.myID {
+	for id, other := range c.queue {
+		if id == c.myID {
 			continue
 		}
-		other := c.queue[i]
 		if other.Status == statusRequest &&
 			(other.Timestamp < mine.Timestamp ||
-				(other.Timestamp == mine.Timestamp && i < c.myID)) {
+				(other.Timestamp == mine.Timestamp && id < c.myID)) {
 			return
 		}
 	}

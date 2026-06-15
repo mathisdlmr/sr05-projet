@@ -114,6 +114,7 @@ type Message struct {
 	Timestamp   *int
 	VectorClock map[int]int // horloge vectorielle : map d'ID du site vers sa valeur
 	Color       string      // lestage Lai-Yang : "" si non-applicatif, ColorWhite ou ColorRed sinon
+	View        int         // numéro de vue (membership) de l'émetteur ; 0 = vue initiale
 	Sender      int
 	ToControl   bool // Est-ce un message destiné a mon controle ou qui vient de mon controle
 	Data        map[string]string
@@ -135,6 +136,7 @@ func ParseMessage(msg string) (*Message, error) {
 	var msgAction Action
 	var msgVectorClock map[int]int
 	color := ""
+	view := 0
 	toControl := false
 	data := make(map[string]string)
 
@@ -178,6 +180,8 @@ func ParseMessage(msg string) (*Message, error) {
 				sender, _ = strconv.Atoi(parts[1])
 			case "color":
 				color = parts[1]
+			case "view":
+				view, _ = strconv.Atoi(parts[1])
 			default:
 				data[parts[0]] = parts[1]
 			}
@@ -190,6 +194,7 @@ func ParseMessage(msg string) (*Message, error) {
 		Timestamp:   timestamp,
 		VectorClock: msgVectorClock,
 		Color:       color,
+		View:        view,
 		Sender:      sender,
 		Data:        data,
 		ToControl:   toControl,
@@ -227,6 +232,9 @@ func (m Message) String() string {
 	}
 	if m.Color != "" {
 		builder.WriteString(fmt.Sprintf("%s%scolor%s%s", field, kv, kv, m.Color))
+	}
+	if m.View != 0 {
+		builder.WriteString(fmt.Sprintf("%s%sview%s%d", field, kv, kv, m.View))
 	}
 	builder.WriteString(fmt.Sprintf("%s%ssender%s%d", field, kv, kv, m.Sender))
 

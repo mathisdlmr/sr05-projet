@@ -15,6 +15,16 @@ const initial: GameState = {
   joined: false,
   lastSnapshot: null,
   snapshotRejection: null,
+  lastNotice: null,
+}
+
+function roleLabel(role: string): string {
+  switch (role) {
+    case 'WOLF':     return 'Loup-Garou'
+    case 'WITCH':    return 'Sorcière'
+    case 'VILLAGER': return 'Villageois'
+    default:         return role
+  }
 }
 
 type Action = ServerEvent | { type: 'wsOpen' } | { type: 'wsClose' }
@@ -57,11 +67,21 @@ function reducer(state: GameState, action: Action): GameState {
 
     case 'playerLeft': {
       const players = { ...state.players }
-      if (players[action.playerId]) {
-        players[action.playerId] = { ...players[action.playerId], alive: false }
+      let message = `${action.playerId} a quitté la partie.`
+      if (action.role) {
+        if (players[action.playerId]) {
+          players[action.playerId] = { ...players[action.playerId], alive: false, role: action.role }
+        }
+        message = `${action.playerId} a quitté la partie — il/elle était ${roleLabel(action.role)}.`
+      } else {
+        delete players[action.playerId]
+        message = `${action.playerId} a quitté le lobby.`
       }
-      return { ...state, players }
+      return { ...state, players, lastNotice: { id: Date.now(), message } }
     }
+
+    case 'actionRejected':
+      return { ...state, lastNotice: { id: Date.now(), message: action.message } }
 
     case 'gameRestart':
       return {

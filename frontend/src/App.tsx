@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useGame } from './useGame'
-import type { GameState } from './types'
+import type { GameState, Notice } from './types'
 import { Lobby } from './components/Lobby'
 import { NightPhase } from './components/NightPhase'
 import { VotePhase } from './components/VotePhase'
@@ -37,6 +37,36 @@ function QuitButton({ send }: { send: (action: string) => void }) {
         Non
       </button>
     </span>
+  )
+}
+
+function NoticeToast({ notice }: { notice: Notice | null }) {
+  const [visible, setVisible] = useState<Notice | null>(null)
+  const [leaving, setLeaving] = useState(false)
+
+  useEffect(() => {
+    if (!notice) return
+    setVisible(notice)
+    setLeaving(false)
+    const timer = setTimeout(() => {
+      handleClose()
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [notice])
+
+  const handleClose = () => {
+    setLeaving(true)
+    setTimeout(() => {
+      setVisible(null)
+      setLeaving(false)
+    }, 240)
+  }
+  if (!visible) return null
+
+  return (
+    <div className={`notice-toast ${leaving ? "is-leaving" : ""}`} onClick={handleClose}>
+      {visible.message}
+    </div>
   )
 }
 
@@ -103,6 +133,7 @@ export default function App() {
   return (
     <div className="app">
       <Header state={state} send={send} />
+      <NoticeToast notice={state.lastNotice} />
       {isSpectator && (
         <div style={{
           background: 'var(--surface)',

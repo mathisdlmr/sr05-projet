@@ -7,6 +7,11 @@ export interface Player {
   alive: boolean
 }
 
+export interface Notice {
+  id: number
+  message: string
+}
+
 export interface GameState {
   wsStatus: 'connecting' | 'connected' | 'disconnected'
   phase: Phase
@@ -22,6 +27,7 @@ export interface GameState {
   // myRole is always set: '?' means role not yet revealed (LOBBY)
   lastSnapshot: SnapshotEG | null      // dernière sauvegarde reçue via algo 11
   snapshotRejection: string | null     // message si dernier déclencheur refusé
+  lastNotice: Notice | null            // dernière notification transitoire (départ, action refusée...)
 }
 
 // ── Snapshot (algo 11) ──────────────────────────────────────────────────────
@@ -53,7 +59,8 @@ export interface SnapshotEG {
 export type ServerEvent =
   | { type: 'init'; phase: Phase; myId: string; myRole: Role; myAlive: boolean; players: Record<string, Player>; votes: Record<string, string>; killWolf?: string }
   | { type: 'playerJoined'; playerId: string }
-  | { type: 'playerLeft'; playerId: string }
+  | { type: 'playerLeft'; playerId: string; role?: Role }
+  | { type: 'actionRejected'; reason: string; message: string }
   | { type: 'gameStart'; myRole: Role; players: Record<string, Player> }
   | { type: 'wolfVoted'; voter: string; target?: string }
   | { type: 'phaseChange'; phase: Phase; killWolf?: string }

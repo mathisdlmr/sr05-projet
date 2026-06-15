@@ -3,7 +3,6 @@
 
 == L'arrivée d'un participant <partie-arrivee>
 
-
 === Découverte et demande d'intégration
 
 L'arrivée d'un participant peut se faire à tout moment. Il suffit au nouveau site d'envoyer une demande d'ajout à un site de l'anneau. 
@@ -12,7 +11,7 @@ L'anneau démarre alors une election qui désigne qui parrainera le nouveau site
 
 === Élection du site parrain
 
-Cette election se base sur l'id des site. C'est le site dont l'id est le plus bas qui est selectionné. C'est inutile en sois mais pourrais avoir plusieurs utilitées : 
+Cette election se base sur l'id des site. C'est le site dont l'id est le plus bas qui est selectionné. C'est inutile en l'état actuel mais pourrais avoir plusieurs utilitées : 
 - Si les sites étaient répartis dans l'espace, chacun pourrait évaluer son temps de communication au nouveau site et choisir le site le plus adéquat pour minimiser les temps de communication au sein de l'anneau
 - On pourrait ajouter les site dans l'ordre de leurs id (qui font office d'adresse ici), de telle manière à permettre une gestion des départ brutaux qui consisterait a tenter de se connecter aux adresses suivantes jusqu'a tomber sur un site fonctionnel, dont on serait certain qu'il est le suivant. 
 - Tout autre critère pourrait départager les sites dans ce système d'éléction. 

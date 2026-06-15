@@ -74,11 +74,17 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 		}
 	}
 
-	if msg.Action == transport.ActionDepart { // le joueur local s'en va : on prévient tout le monde
+	if msg.Action == transport.ActionDepart { // le joueur local s'en va
+		// on prévient les autres controles
+		c.sendMessage(transport.Message{
+			Type:   transport.TypeControl,
+			Action: transport.ActionSiteLeft,
+			Data:   msg.Data, // contient id = identifiant joueur (ex "J2")
+		})
+		// On prévient son net local
 		c.sendMessage(transport.Message{
 			Type:   transport.TypeControl,
 			Action: transport.ActionDepart,
-			Data:   msg.Data, // contient id = identifiant joueur (ex "J2")
 		})
 	}
 
@@ -192,7 +198,7 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 		c.handleSnapshotPrepost(msg)
 	case transport.ActionSnapshotComplete:
 		c.handleSnapshotComplete(msg)
-	case transport.ActionDepart:
+	case transport.ActionSiteLeft:
 		c.handleDepart(msg)
 	case transport.ActionWakeup:
 		// Bascule si on est encore blanc ET dans la même vue. Le wakeup ne

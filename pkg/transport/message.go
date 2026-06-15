@@ -94,6 +94,7 @@ const (
 	ActionRequestNewSiteInit Action = "requestNewSiteInit" // Un nouveau site doit être initialisé, envoyé par le net du voisin du nouveau site a son propre control
 	ActionNewSiteInit        Action = "newSiteInit"        // Envoyé par le control qui reçoit requestNewSiteInit au control du nouveau site, contient l'état du site
 	ActionNewSiteAdded       Action = "newSiteAdded"       // Envoyé par le control du nouveau site au net du voisin du nouveau site pour confirmer que le nouveau site est prêt
+	ActionSiteLeft           Action = "siteLeft"
 
 	// Net
 	ActionAddMeToNet        Action = "AddMeToNet"        // Contient l'id du nouveau site

@@ -107,7 +107,6 @@ func (c *Net) handleMessage(msg transport.Message) {
 	case transport.TypeNet:
 		switch msg.Action {
 		case transport.ActionAddMeToNet:
-
 			idToAdd, _ := strconv.Atoi(msg.Data["idToAdd"])
 			c.startElection(idToAdd)
 		case transport.ActionConnectToYourNext:
@@ -186,7 +185,7 @@ func (c *Net) sendToControl(msg transport.Message) {
 }
 
 func (c *Net) tee_redirect(file_in string, file_out1 string, file_out2 string) int {
-	c.log.Debug("tee_redirect", fmt.Sprintf("files redirected are in %s out1 %s out2 %s", file_in, file_out1, file_out2))
+	c.log.Debug("tee_redirect", fmt.Sprintf("files redirected are in %s ; out is redirected in %s and %s", file_in, file_out1, file_out2))
 
 	cmd := exec.Command("tee", file_out1)
 	cmd.Stderr = os.Stderr

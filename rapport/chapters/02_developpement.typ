@@ -74,8 +74,4 @@ Le changement de vue est concentré dans une seule opération, déclenchée par 
 
 Le mécanisme de vue se branche sur la gestion des participants (parties #ref(<partie-arrivee>, supplement: none) et #ref(<partie-depart>, supplement: none)). À l'arrivée, le nouveau site hérite de la vue de son parrain quand celui-ci lui transmet son état de référence, puis son ajout incrémente la vue ; il démarre donc dans la même vue que les autres. Au départ, le chemin est symétrique : le joueur signale son départ à son control, qui le diffuse ; chaque site retire l'émetteur de sa vue et prévient son application. Ce retrait emprunte la même opération de changement de vue, il avorte donc une capture en cours. La couche net, prévenue par ce même message, défait les liens (partie réseau, non traitée ici).
 
-Tout cela tient à une hypothèse : les départs sont annoncés. Un site qui tombe en panne sans prévenir reste un membre de la vue, et une capture lancée ensuite attendrait sans fin son état. C'est le rôle d'un détecteur de pannes, comme dans les systèmes à synchronie virtuelle @birman-joseph-1987 ; nous ne l'implémentons pas, notre vue suppose des départs coopératifs. Détecter de façon fiable le départ subi dépasse notre contribution et rejoint la partie #ref(<partie-depart>, supplement: none).
-
-
-== Synthèse
-
+Tout cela tient à une hypothèse : les départs sont annoncés. Un site qui tombe en panne sans prévenir reste un membre de la vue, et une capture lancée ensuite attendrait sans fin son état. C'est le rôle d'un détecteur de pannes, comme dans les systèmes à synchronie virtuelle @birman-joseph-1987 ; nous ne l'implémentons pas, notre vue suppose des départs coopératifs. Détecter de façon fiable le départ subi dépasse notre contribution et rejoint la partie #ref(<partie-depart>, supplement: none)

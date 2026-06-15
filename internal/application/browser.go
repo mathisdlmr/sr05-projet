@@ -2,6 +2,8 @@ package application
 
 import (
 	"encoding/json"
+	"fmt"
+
 	"github.com/sr05-projet/pkg/transport"
 )
 
@@ -54,6 +56,9 @@ func (a *App) handleFromBrowser(raw string) {
 		return
 	}
 	if action.Action == "restart" {
+		if a.rejectIfNotEnoughPlayers("relancer la partie") {
+			return
+		}
 		a.requestCS(map[string]string{"cmd": "restart"})
 		a.log.Info("handleFromBrowser", "redémarrage demandé")
 		return
@@ -72,6 +77,12 @@ func (a *App) handleFromBrowser(raw string) {
 		a.log.Info("handleFromBrowser", "déclenchement snapshot demandé par le navigateur")
 		return
 	}
+	if action.Action == "start" {
+		if a.rejectIfNotEnoughPlayers("démarrer la partie") {
+			return
+		}
+	}
+
 	data := map[string]string{
 		"cmd":   action.Action,
 		"voter": a.myID,
@@ -81,6 +92,22 @@ func (a *App) handleFromBrowser(raw string) {
 	}
 	a.requestCS(data)
 	a.log.Info("handleFromBrowser", "SC demandée pour: "+action.Action)
+}
+
+// rejectIfNotEnoughPlayers - vérifie qu'il y a assez de joueurs (3) en partie
+func (a *App) rejectIfNotEnoughPlayers(action string) bool {
+	nb := len(a.state.Players)
+	if nb >= 3 {
+		return false
+	}
+	msg := fmt.Sprintf("Il faut au moins %d joueurs pour %s (actuellement %d). "+"Faites rejoindre un nouveau site avec : ./scripts/join_site.sh <id_d_un_site_pas_utilise> <id_d_un_site_en_partie>", MinPlayers, action, nb)
+	a.pushEvent(map[string]interface{}{
+		"type":    "actionRejected",
+		"reason":  "not_enough_players",
+		"message": msg,
+	})
+	a.log.Warn("rejectIfNotEnoughPlayers", msg)
+	return true
 }
 
 // getVisibleVotes - retourne les votes visibles pour ce joueur (sans les vides)

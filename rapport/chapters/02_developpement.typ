@@ -31,17 +31,17 @@ Il faut également s'assurer que le site peut être en section critique, auquel 
 
 A l'ajout d'un site, une fois initialisé, il suffit aux autres sites d'ajouter le nouveau dans leurs listes et les méthodes implémentées avant sont fonctionnelles.
 
-
-
-
 == Le départ d'un participant <partie-depart>
+
 
 
 === Départ annoncé
 
 
+
 === Départ subi (panne)
 
+Le cas du départ subi n'a pas été implémenté car le projet ne semblait pas demander une forme de résilience du système, et nous ne souhaitions pas rajouter de la complexité au projet sur des notions qui ne concernent pas directement le cours. Tout de même, nous avons effectué quelques recherches sur le sujet, et une solution assez facilement implémentable semblait sortir du lot : la documentation sur les FIFOs indique que lorsqu'un processus essaye d'écrire dans une FIFO dans laquelle aucun processus ne lit, alors une erreur `SIGPIPE` est soulevée (#link("https://www.man7.org/linux/man-pages/man7/fifo.7.html#NOTES")[Source]). Ainsi, il suffirait d'ajouter un try/catch dans le package `io.go` lorsque l'on envoie un message, et considérer que si l'on reçoit une erreur `SIGPIPE` lorsque l'on écrit à notre successeur, alors c'est que ce dernier n'est plus joingbale et qu'il doit être exclut du réseau. Afin de reformer l'anneau il faudrait donc maintenir un tableau ordonnée avec l'identifiant de chacun des sites, et essayer de contacter successivement chacun de ses successeurs jusqu'à en trouver un joignable. On pourrait ensuite reprendre notre méthode classique pour exclure un site de la couche contrôle et applicative pour demander d'exclure notre ancien successeur.
 
 == La sauvegarde répartie dans un réseau dynamique <partie-sauvegarde>
 

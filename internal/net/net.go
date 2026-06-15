@@ -85,7 +85,7 @@ func (c *Net) Run() {
 			c.log.Error("Run", "parse message: "+err.Error())
 			continue
 		}
-		c.log.Info("Run", fmt.Sprintf("message reçu: %v", msg))
+		c.log.Debug("Run", fmt.Sprintf("message reçu: %v", msg))
 		c.handleMessage(*msg)
 	}
 }

@@ -15,14 +15,21 @@
 
 === Mise à cohérence du nouveau réplicat
 
-Pour que le site puisse initialiser son application (pour afficher l'état du jeu à jour), mais aussi son control (pour être à jour sur les exclusions mutuelles et autres communications de controle), il faut transmettre un état valide à ce nouveau site. Pour cela, nous utilisons le résultat de l'élection du site parrain. 
-#quote(block: true)[Nous notons que si cela fonctionne actuellement, car nous augmentons les id des sites au fur et à mesure des ajouts et que nous sélectionnons le site d'id le plus bas, un changement du mécanisme d'élection qui n'assurerait pas que le site parrain ait un control déjà initialisé pourrait mener à des conflits en cas d'ajouts successifs de sites.]
+Pour que le site puisse initialiser son application (pour afficher l'état du jeu à jour), mais aussi son contrôle (pour être à jour sur les exclusions mutuelles et autres communications de contrôle), il faut transmettre un état valide à ce nouveau site. Pour cela, nous utilisons le résultat de l'élection du site parrain. 
+#quote(block: true)[Nous notons qu'il n'y a pour le moment pas garanti que le site sélectionné soit déjà initialisé lorsqu'il est sélectionné, pouvant mener à un deadlock selon le type d'élection choisi.]
 
-L'obstacle principal à ce stade est d'assurer qu'aucun message impactant l'état du site ne soit perdu entre la prise de la snapshot locale sur le site du parrain et la fin de l'initialisation du nouveau site. Nous avons exploré les pistes suivantes :
-- Un freeze global au niveau control pendant l'ajout du nouveau site, pour éviter complètement les problèmes de messages perdus.
-- Le nouveau site met en queue tous les messages qu'il reçoit jusqu'à recevoir son initialisation, puis les traite en excluant ceux qui sont antérieurs à la snapshot du parrain, requérant une nouvelle horloge qui contient les horloges de Lamport de tous les sites, pour ignorer uniquement les messages non reçus même si un message causalement plus récent a bien été reçu.
+L'obstacle principal à ce stade est d'assurer qu'aucun message impactant l'état du site ne soit perdu entre la sauvegarde de l'état local sur le site du parrain et la fin de l'initialisation du nouveau site (cf. @cas_pb).
 
-Nous choisissons cette seconde approche, qui permet de traiter le problème plus finement, puisqu'il ne nécessite pas de freeze tous les sites, tout en ne requérant pas plus de développement. Pour permettre d'initialiser le premier site sans qu'il se bloque en attendant une initialisation externe, on ajoute l'option d'un lancement en mode "initisateur".
+#figure(
+  image("../assets/cas_pb.png", width: 70%),
+  caption: [Cas de perte d'un message (A)],
+) <cas_pb>
+
+Pour parer à ce problème, nous écartons la solution d'un freeze global, trop lourde inutilement à notre sens, pour privilégier une solution plus fine décrite ci-après.
+
+Le nouveau site _met en queue_ tous les messages qu'il reçoit jusqu'à recevoir son initialisation, puis les traite _une fois initialisé_ en excluant ceux qui sont _antérieurs à la snapshot_ du parrain, requérant une nouvelle horloge qui contient les estampilles des derniers messages reçus de tous les sites, pour ignorer uniquement les messages non reçus même si un message causalement plus récent a bien été reçu #footnote()[En effet, si nous utilisions une horloge vectorielle pour filtrer les messages, il serait possible qu'un message envoyé par un site A ne soit jamais traité, car le site local a reçu avant un message d'un site B ayant déjà reçu A (causalement ultérieur). C'est bien sûr impossible dans un anneau, mais le contrôle doit être agnostique à l'architecture net.].
+
+Pour permettre d'initialiser le premier site sans qu'il se bloque en attendant une initialisation externe, on ajoute l'option d'un lancement en mode "initiateur".
 
 === Impact sur l'exclusion mutuelle et les horloges
 
@@ -41,7 +48,7 @@ A l'ajout d'un site, une fois initialisé, il suffit aux autres sites d'ajouter 
 
 === Départ subi (panne)
 
-Le cas du départ subi n'a pas été implémenté car le projet ne semblait pas demander une forme de résilience du système, et nous ne souhaitions pas rajouter de la complexité au projet sur des notions qui ne concernent pas directement le cours. Tout de même, nous avons effectué quelques recherches sur le sujet, et une solution assez facilement implémentable semblait sortir du lot : la documentation sur les FIFOs indique que lorsqu'un processus essaye d'écrire dans une FIFO dans laquelle aucun processus ne lit, alors une erreur `SIGPIPE` est soulevée (#link("https://www.man7.org/linux/man-pages/man7/fifo.7.html#NOTES")[Source]). Ainsi, il suffirait d'ajouter un try/catch dans le package `io.go` lorsque l'on envoie un message, et considérer que si l'on reçoit une erreur `SIGPIPE` lorsque l'on écrit à notre successeur, alors c'est que ce dernier n'est plus joingbale et qu'il doit être exclut du réseau. Afin de reformer l'anneau il faudrait donc maintenir un tableau ordonnée avec l'identifiant de chacun des sites, et essayer de contacter successivement chacun de ses successeurs jusqu'à en trouver un joignable. On pourrait ensuite reprendre notre méthode classique pour exclure un site de la couche contrôle et applicative pour demander d'exclure notre ancien successeur.
+Le cas du départ subi n'a pas été implémenté car le projet ne semblait pas demander une forme de résilience du système, et nous ne souhaitions pas rajouter de la complexité au projet sur des notions qui ne concernent pas directement le cours. Tout de même, nous avons effectué quelques recherches sur le sujet, et une solution assez facilement implémentable semblait sortir du lot : la documentation sur les FIFOs indique que lorsqu'un processus essaye d'écrire dans une FIFO dans laquelle aucun processus ne lit, alors une erreur `SIGPIPE` est soulevée (#link("https://www.man7.org/linux/man-pages/man7/fifo.7.html#NOTES")[Source]). Ainsi, il suffirait d'ajouter un try/catch dans le package `io.go` lorsque l'on envoie un message, et considérer que si l'on reçoit une erreur `SIGPIPE` lorsque l'on écrit à notre successeur, alors c'est que ce dernier n'est plus joignable et qu'il doit être exclu du réseau. Afin de reformer l'anneau il faudrait donc maintenir un tableau ordonnée avec l'identifiant de chacun des sites, et essayer de contacter successivement chacun de ses successeurs jusqu'à en trouver un joignable. On pourrait ensuite reprendre notre méthode classique pour exclure un site de la couche contrôle et applicative pour demander d'exclure notre ancien successeur.
 
 == La sauvegarde répartie dans un réseau dynamique <partie-sauvegarde>
 

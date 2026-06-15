@@ -38,15 +38,15 @@ export interface SnapshotQueueEntry {
 }
 
 export interface SnapshotControlState {
-  queue: SnapshotQueueEntry[]
+  queue: Record<string, SnapshotQueueEntry>   // clé = siteID stringifié
   bilan: number
-  vectorClock: number[]
+  vectorClock: Record<string, number>         // clé = siteID stringifié
 }
 
 export interface SnapshotSiteState {
   controlState: SnapshotControlState
   appState: string                       // JSON string du GameState côté Go
-  vectorClock: number[]
+  vectorClock: Record<string, number>    // clé = siteID stringifié
 }
 
 export interface SnapshotEG {

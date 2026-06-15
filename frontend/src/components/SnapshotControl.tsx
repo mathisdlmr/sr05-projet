@@ -30,7 +30,10 @@ function SiteCard({ siteId, site }: { siteId: string; site: SnapshotSiteState })
     // Garde un objet vide si le parsing échoue
   }
 
-  const vc = '[' + site.vectorClock.slice(1).join(', ') + ']'
+  // vectorClock et queue sont des maps (clé = siteID stringifié) côté Go :
+  // on itère les entrées triées par identifiant de site.
+  const byId = (a: [string, unknown], b: [string, unknown]) => Number(a[0]) - Number(b[0])
+  const vc = '[' + Object.entries(site.vectorClock).sort(byId).map(([, v]) => v).join(', ') + ']'
   const players = app.players ?? {}
   const votes = app.votes ?? {}
   const playersList = Object.entries(players)
@@ -59,8 +62,8 @@ function SiteCard({ siteId, site }: { siteId: string; site: SnapshotSiteState })
         <div>
           <strong>Queue mutex :</strong>{' '}
           <code style={{ fontSize: '0.85em' }}>
-            {site.controlState.queue.slice(1).map((e, i) => (
-              `[${i + 1}: ${statusLabel(e.status)}@${e.timestamp}]`
+            {Object.entries(site.controlState.queue).sort(byId).map(([id, e]) => (
+              `[${id}: ${statusLabel(e.status)}@${e.timestamp}]`
             )).join(' ')}
           </code>
         </div>

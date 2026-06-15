@@ -75,11 +75,17 @@ func (c *Control) snapshotControlState() ControlSnapshot {
 	for k, v := range c.vectorClock {
 		vc[k] = v
 	}
+	// deep copy de la map LamportClocks : sans ça, l'état figé partagerait la
+	// map vivante du Control et continuerait de muter après la bascule.
+	lc := make(map[int]int, len(c.LamportClocks))
+	for k, v := range c.LamportClocks {
+		lc[k] = v
+	}
 	return ControlSnapshot{
 		Queue:         q,
 		Bilan:         c.bilan,
 		VectorClock:   vc,
-		LamportClocks: c.LamportClocks,
+		LamportClocks: lc,
 		View:          c.view,
 	}
 }

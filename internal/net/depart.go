@@ -47,7 +47,7 @@ func (c *Net) handleDepart(msg transport.Message) {
 	}
 
 	if msg.Data["pendingElections"] != "" && !c.tryingToLeave {
-		pendingElectionsStrings := strings.Split(msg.Data["pendingElection"], ",")
+		pendingElectionsStrings := strings.Split(msg.Data["pendingElections"], ",")
 		for _, electionString := range pendingElectionsStrings {
 			election, _ := strconv.Atoi(electionString)
 			c.electionStartPending = append(c.electionStartPending, election)

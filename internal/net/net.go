@@ -51,13 +51,13 @@ func New(myID int, io *transport.IO, log *logger.Logger, nextSiteId int, ttin in
 
 func (c *Net) init() {
 	c.log.Info("init", "Starting Net")
+	c.kill_pid(c.ttout)
+	c.create_tee()
+	time.Sleep(2000000)
 	if c.static {
 		c.log.Debug("init", "Net started in static mode")
 		return
 	}
-	c.kill_pid(c.ttout)
-	c.create_tee()
-	time.Sleep(2000000)
 	c.sendMessage(transport.Message{
 		Type:   transport.TypeNet,
 		Action: transport.ActionAddMeToNet,
@@ -125,9 +125,6 @@ func (c *Net) handleMessage(msg transport.Message) {
 				c.io.Send(msg.String()) // forward election end if not me
 			}
 			c.handleElectionEnd()
-		case transport.ActionSiteAjoute:
-			c.sendToControl(msg)
-			c.sendMessage(msg) // Envoyer aux autres sites
 		case transport.ActionDepart: // Remonter au
 			c.handleDepart(msg)
 

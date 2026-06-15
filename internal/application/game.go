@@ -176,6 +176,7 @@ func (a *App) handleNewSiteInit(stateJSON string) {
 	a.state = gs
 	a.myRole = RoleUnknown
 	a.spectating = true
+	a.applyJoin(a.myID)
 	a.sendInit()
 	a.log.Info("handleNewSiteInit", "état reçu du parrain, mode spectateur activé")
 }

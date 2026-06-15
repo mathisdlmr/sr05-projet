@@ -2,7 +2,7 @@
 #
 # Script pour faire tourner notre système réparti en local
 #
-# Topologie en anneau de N=NB_SITES 
+# Topologie en anneau de N=NB_SITES
 # Chaque site embarque un binaire Go `net` pour gérer la couche réseau, un binaire Go `control`
 # pour gérer les mécanismes de système réparti du cours (snapshot, horloges, etc.) et
 # une `application`` (avec serveur web intégré depuis la fusion app+server)
@@ -32,6 +32,7 @@ nettoyer() {
 	echo "Nettoyage..."
 	killall application 2>/dev/null
 	killall control 2>/dev/null
+	killall net 2>/dev/null
 	killall tee 2>/dev/null
 	killall cat 2>/dev/null
 	rm -f /tmp/in_app* /tmp/out_app* /tmp/in_ctl* /tmp/out_ctl* /tmp/in_net* /tmp/out_net*
@@ -39,35 +40,28 @@ nettoyer() {
 }
 trap nettoyer INT QUIT TERM
 
-# Pour chaque site, on créé 3 fifos (in et out) pour l'app, le control et le net
-for i in $(seq 1 $NB_SITES); do
-	rm -f /tmp/in_app$i /tmp/out_app$i /tmp/in_ctl$i /tmp/out_ctl$i /tmp/in_net$i /tmp/out_net$i 
-	mkfifo /tmp/in_app$i  /tmp/out_app$i
-	mkfifo /tmp/in_ctl$i  /tmp/out_ctl$i
-	mkfifo /tmp/in_net$i  /tmp/out_net$i
-done
+# On setup les FIFOs de notre site Init
+rm -f /tmp/in_app1 /tmp/out_app1 /tmp/in_ctl1 /tmp/out_ctl1 /tmp/in_net1 /tmp/out_net1
+mkfifo /tmp/in_app1 /tmp/out_app1
+mkfifo /tmp/in_ctl1 /tmp/out_ctl1
+mkfifo /tmp/in_net1 /tmp/out_net1
 
-# Lancement des processus
-# Ces processus sont marqués comme "static" pour être lancés comme lors de la première version et sans mécanisme de parainage
-for i in $(seq 1 $NB_SITES); do
-	NEXT_SITE=$(( (i % NB_SITES) + 1 ))
-	PORT=$((BASE_PORT + i - 1))
+# On lance les processus de notre site Init
+./bin/application -n "app1" -id "J1" -addr localhost -port "$BASE_PORT" -web "$ROOT/web" < /tmp/in_app1 > /tmp/out_app1 &
+./bin/control -n "ctl1" -id "1" -sites "1" -isInitiator < /tmp/in_ctl1 > /tmp/out_ctl1 &
 
-	./bin/application -n "app$i" -id "J$i" -addr localhost -port "$PORT" -web "$ROOT/web" < /tmp/in_app$i > /tmp/out_app$i &
-	./bin/control -n "ctl$i" -id "$i" -sites "$NB_SITES" -isInitiator < /tmp/in_ctl$i > /tmp/out_ctl$i &
-	./bin/net -n "net$i" -id "$i" -next "$NEXT_SITE" -static < /tmp/in_net$i > /tmp/out_net$i &
-done
+# On commence à créer les redirections app/ctl de notre site Init
+cat /tmp/out_app1 > /tmp/in_ctl1 &
+tee /tmp/in_app1 < /tmp/out_ctl1 > /tmp/in_net1 &
+cat /tmp/out_net1 > /dev/null &
+TTOUT_1=$!
+./bin/net -n "net1" -id "1" -next "1" -ttout "$TTOUT_1" -static < /tmp/in_net1 > /tmp/out_net1 &
 
-for i in $(seq 1 $NB_SITES); do
-	NEXT_SITE=$(( (i % NB_SITES) + 1 ))
-	cat /tmp/out_app$i > /tmp/in_ctl$i &
-	tee /tmp/in_app$i < /tmp/out_ctl$i > /tmp/in_net$i &
-	tee /tmp/in_ctl$i < /tmp/out_net$i > /tmp/in_net$NEXT_SITE &
-done
+echo " * http://localhost:$BASE_PORT -> J1"
 
-echo "URLs :"
-for i in $(seq 1 $NB_SITES); do
-	echo " * http://localhost:$((BASE_PORT + i - 1)) -> J$i"
+for i in $(seq 2 $NB_SITES); do
+	sleep 1
+	./scripts/join_site.sh "$i" 1 "$BASE_PORT"
 done
 
 sleep 3600

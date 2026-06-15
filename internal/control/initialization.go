@@ -24,7 +24,7 @@ func (c *Control) sendInitToSite(appState string, siteID int) {
 
 	c.sendMessage(transport.Message{
 		Type:   transport.TypeControl,
-		Action: transport.ActionState,
+		Action: transport.ActionNewSiteInit,
 		Data: map[string]string{
 			"siteState": string(siteStateJSON),
 			"target":    strconv.Itoa(siteID),
@@ -35,8 +35,12 @@ func (c *Control) sendInitToSite(appState string, siteID int) {
 
 // Un site vient de terminer de s'initialiser, il nous en informe
 func (c *Control) handleNewSiteAdded(msg *transport.Message) {
-
 	c.AddSite(msg.Sender)
+	c.sendMessage(transport.Message{
+		Type:   transport.TypeApplication,
+		Action: transport.ActionSiteAjoute,
+		Data:   map[string]string{"id": "J" + strconv.Itoa(msg.Sender)},
+	})
 
 }
 

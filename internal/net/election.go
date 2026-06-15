@@ -30,16 +30,15 @@ func (c *Net) handleElectionMessage(msg transport.Message) {
 		}
 		c.log.Info("handleElectionMessage", "Election won, adding site after me")
 		siteToInsert, _ := strconv.Atoi(msg.Data["idToAdd"])
-		nextSiteIdString := strconv.Itoa(c.nextSiteId)
 		c.insertSite(siteToInsert)
 		c.sendMessage(transport.Message{
 			Type:   transport.TypeNet,
-			Action: transport.ActionConnectToYourNext,
-			Data:   map[string]string{"nextSite": nextSiteIdString},
+			Action: transport.ActionElectionTerminee,
 		})
 		c.sendMessage(transport.Message{
-			Type:   transport.TypeNet,
-			Action: transport.ActionElectionTerminee,
+			Type:   transport.TypeApplication,
+			Action: transport.ActionRequestNewSiteInit,
+			Data:   map[string]string{"id": strconv.Itoa(siteToInsert)},
 		})
 		c.electionGoingOn = -1
 		c.checkElectionQueue()
@@ -48,7 +47,6 @@ func (c *Net) handleElectionMessage(msg transport.Message) {
 
 	if currentCandidate > c.myID && !c.tryingToLeave { // Je deviens le nouveau candidat
 		msg.Data["candidat"] = strconv.Itoa(c.myID)
-		c.sendMessage(msg)
 	}
 
 	c.sendMessage(msg) // Envoi du message au prochain site

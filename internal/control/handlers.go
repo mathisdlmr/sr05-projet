@@ -54,6 +54,9 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 			Status:    statusRequest,
 			Timestamp: c.clock,
 		}
+		if c.nbSites == 1 { // Cas particulier où on est le seul site -> On résoud nous même la CS
+			c.checkCriticalSection()
+		}
 	}
 
 	if msg.Action == transport.ActionEndCS { // application libère la section critique
@@ -82,6 +85,11 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 	// Réponse de l'app à une demande de snapshot d'état (init filleul hors mode freeze)
 	if msg.Action == transport.ActionSnapshotState && msg.Data["role"] == "response" {
 		c.handleSnapshotStateResponse(msg)
+		return
+	}
+
+	if msg.Action == transport.ActionRequestNewSiteInit {
+		c.handleRequestNewSiteInit(msg)
 		return
 	}
 
@@ -170,8 +178,8 @@ func (c *Control) handleControlMessage(msg *transport.Message) {
 	switch msg.Action {
 	case transport.ActionNewSiteAdded:
 		c.handleNewSiteAdded(msg)
-	case transport.ActionRequestNewSiteInit:
-		c.handleRequestNewSiteInit(msg)
+	case transport.ActionNewSiteInit:
+		// Diffusé à tous mais seul le nouveau site devrait le consommer
 	case transport.ActionRequestCS:
 		c.handleRequestCS(msg)
 	case transport.ActionAcknowlegeCS:

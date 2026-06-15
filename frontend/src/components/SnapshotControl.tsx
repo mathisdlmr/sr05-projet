@@ -108,7 +108,7 @@ function SnapshotModal({ eg, onClose }: { eg: SnapshotEG; onClose: () => void })
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>📸 Dernière sauvegarde répartie</h2>
+          <h2 style={{ margin: 0 }}>Dernière sauvegarde répartie</h2>
           <button className="btn btn-neutral" onClick={onClose}>Fermer</button>
         </div>
 
@@ -151,7 +151,7 @@ export function SnapshotControl({ state, send }: Props) {
           onClick={() => send('startSnapshot')}
           title="Déclenche une capture distribuée (algo 11)"
         >
-          📸 Sauvegarder
+          Sauvegarder
         </button>
         <button
           className="btn btn-neutral"

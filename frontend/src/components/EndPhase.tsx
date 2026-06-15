@@ -91,7 +91,7 @@ export function EndPhase({ state, send }: Props) {
           className="btn btn-primary btn-lg"
           onClick={() => send('restart')}
         >
-          🔄 Rejouer
+          Rejouer
         </button>
       </div>
     </>

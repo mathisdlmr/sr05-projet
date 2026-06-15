@@ -12,7 +12,7 @@ export function Lobby({ state, send }: Props) {
   return (
     <>
       <div className="phase-banner">
-        <h1>🏰 Salle d'attente</h1>
+        <h1>Salle d'attente</h1>
         <p>En attente que tous les joueurs rejoignent la partie.</p>
       </div>
 

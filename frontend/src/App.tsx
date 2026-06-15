@@ -21,7 +21,7 @@ function QuitButton({ send }: { send: (action: string) => void }) {
 
   if (!confirming) {
     return (
-      <button className="btn btn-danger" style={{ fontSize: '0.75rem', padding: '4px 10px' }} onClick={() => setConfirming(true)}>
+      <button className="btn btn-danger" onClick={() => setConfirming(true)}>
         Quitter
       </button>
     )

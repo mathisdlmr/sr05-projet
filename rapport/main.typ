@@ -32,7 +32,7 @@
 #include "chapters/02_developpement.typ"
 #include "chapters/03_conclusion.typ"
 
-//#bibliography("bibliography.bib")
+#bibliography("bibliography.bib")
 
 //#show: start-appendix
 

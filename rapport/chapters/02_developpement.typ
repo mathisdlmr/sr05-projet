@@ -6,12 +6,37 @@
 
 === Découverte et demande d'intégration
 
+L'arrivée d'un participant peut se faire à tout moment. Il suffit au nouveau site d'envoyer une demande d'ajout à un site de l'anneau. 
+
+L'anneau démarre alors une election qui désigne qui parrainera le nouveau site et devra l'intégrer à l'anneau.  
 
 === Élection du site parrain
 
+Cette election se base sur l'id des site. C'est le site dont l'id est le plus bas qui est selectionné. C'est inutile en sois mais pourrais avoir plusieurs utilitées : 
+- Si les sites étaient répartis dans l'espace, chacun pourrait évaluer son temps de communication au nouveau site et choisir le site le plus adéquat pour minimiser les temps de communication au sein de l'anneau
+- On pourrait ajouter les site dans l'ordre de leurs id (qui font office d'adresse ici), de telle manière à permettre une gestion des départ brutaux qui consisterait a tenter de se connecter aux adresses suivantes jusqu'a tomber sur un site fonctionnel, dont on serait certain qu'il est le suivant. 
+- Tout autre critère pourrait départager les sites dans ce système d'éléction. 
+
+Ces elections permettent également de garantir qu'un seul site est ajouté à la fois, et donc de gérer la concurrence des ajouts car une seule election est en cours à la fois. 
+
+Cette propriété est garantie par plusieurs éléments 
+- On est dans un anneau unidirectionnel 
+- Un site qui à déjà une election en cours ne lance pas de nouvelle election (il la stocke donc)
+
+Ainsi, si deux elections sont lancées de manière concurrente, et que celles-ci finiront par recontrer un site qui est déjà impliqué dans une éléction. 
+
+- L'élection prioritaire est celle qui concerne le site à l'id le plus bas 
+
+Cela implique que le conflict entre election se produira en deux points : les sites ayant commencé l'election recevront une élection différente chacun de leur côté. 
+- Le site ayant lancé l'election prioritaire stocke l'election non prioritaire et l'arrête. Il la relancera a la fin de l'election en cours
+- Le site ayant reçu l'election non prioritaire ecrase l'election en cours, et la transmet a son suivant qui fait de même. La reception d'une election prioritaire sur l'election en cours mène a son ecrasement. 
+
+Ainsi ce système permet de gérer n'importe quel nombre d'éléctions concurrentes 
 
 === Insertion dans l'anneau
+Le vainqueur peut alors insérer le nouveau site dans l'anneau en redirigeant sa sortie vers le nouveau site, et en communiquant son ancien suivant au nouveau site, qui peut alors lui même rediriger sa sortie vers le suivant qui lui a été communiqué. 
 
+Tout cela se produisant dans une même garde et les gardes étant des opérations atomiques, cela garantis qu'aucun message n'est transmis pendant ce processus et donc qu'aucun message n'est perdu. 
 
 === Mise à cohérence du nouveau réplicat
 
@@ -44,6 +69,15 @@ A l'ajout d'un site, une fois initialisé, il suffit aux autres sites d'ajouter 
 
 === Départ annoncé
 
+Dans le net, un site peut envoyer un message de départ qui contient son id et son suivant. Quand le précédent du site reçoit son message, il le communique au site entrain de partir, puis redirige sa sortie vers le suivant qui lui a été communiqué dans le message de départ. L'atomicité des gardes garanti a nouveau qu'aucun message ne soit perdu. 
+
+La gestion des conflits entre election et départ permet de garantir qu'aucune election ne se perd. 
+- Un site qui est sur le point de partir ne peut candidater a une election
+- Un site ne peut partir tant qu'une election est en cours,
+- si un site demande à partir au milieu d'une election et la gagne, il la relance sans y candidater. 
+- Un site qui part transmet ses elections en attente aux suivants dans son message de départ. 
+
+Les conflicts entre départs peuvent se produire si deux sites consécutifs décident de partir au même moment. Pour garantir que leur départ se passe bien, si un site qui a déjà envoyé son message de départ reçoit un message de départ de son précédent, il modifie le message de départ du précédent à la volée en remplaçant son id (a la quelle devrait se connecter le précédent de l'auteur du message) et le ramplace par son suivant a lui. Cela permet de garantir qu'aucun message n'est perdu et que l'anneau reste intact. 
 
 
 === Départ subi (panne)
@@ -74,8 +108,4 @@ Le changement de vue est concentré dans une seule opération, déclenchée par 
 
 Le mécanisme de vue se branche sur la gestion des participants (parties #ref(<partie-arrivee>, supplement: none) et #ref(<partie-depart>, supplement: none)). À l'arrivée, le nouveau site hérite de la vue de son parrain quand celui-ci lui transmet son état de référence, puis son ajout incrémente la vue ; il démarre donc dans la même vue que les autres. Au départ, le chemin est symétrique : le joueur signale son départ à son control, qui le diffuse ; chaque site retire l'émetteur de sa vue et prévient son application. Ce retrait emprunte la même opération de changement de vue, il avorte donc une capture en cours. La couche net, prévenue par ce même message, défait les liens (partie réseau, non traitée ici).
 
-Tout cela tient à une hypothèse : les départs sont annoncés. Un site qui tombe en panne sans prévenir reste un membre de la vue, et une capture lancée ensuite attendrait sans fin son état. C'est le rôle d'un détecteur de pannes, comme dans les systèmes à synchronie virtuelle @birman-joseph-1987 ; nous ne l'implémentons pas, notre vue suppose des départs coopératifs. Détecter de façon fiable le départ subi dépasse notre contribution et rejoint la partie #ref(<partie-depart>, supplement: none).
-
-
-== Synthèse
-
+Tout cela tient à une hypothèse : les départs sont annoncés. Un site qui tombe en panne sans prévenir reste un membre de la vue, et une capture lancée ensuite attendrait sans fin son état. C'est le rôle d'un détecteur de pannes, comme dans les systèmes à synchronie virtuelle @birman-joseph-1987 ; nous ne l'implémentons pas, notre vue suppose des départs coopératifs. Détecter de façon fiable le départ subi dépasse notre contribution et rejoint la partie #ref(<partie-depart>, supplement: none)

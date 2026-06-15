@@ -180,9 +180,11 @@ func (c *Control) WaitingForInit() {
 
 		// ignore les messages déjà inclus dans la snapshot
 		// cad les messages deja recus par le parrain avant la snapshot
-		if *msg.Timestamp <= c.LamportClocks[msg.Sender] { // TODO : J'ai vu passer certains messages sans timestamp du net je crois, à vérifier mais si c'est ça on perd des messages dans les snapshots
-			c.log.Info("WaitingForInit", fmt.Sprintf("message ignoré, déjà inclus dans la snapshot: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
-			continue
+		if msg.Timestamp != nil {
+			if *msg.Timestamp <= c.LamportClocks[msg.Sender] {
+				c.log.Info("WaitingForInit", fmt.Sprintf("message ignoré, déjà inclus dans la snapshot: sender=%d timestamp=%d data=%v", msg.Sender, *msg.Timestamp, msg.Data))
+				continue
+			}
 		}
 
 		c.HandleMessage(msg)

@@ -97,6 +97,8 @@ func (c *Control) HandleMessage(msg *transport.Message) {
 		c.handleApplicationMessage(msg)
 	case transport.TypeControl: // message de contrôle d'un autre site
 		c.handleControlMessage(msg)
+	case transport.TypeNet:
+		return
 	default:
 		c.log.Warn("Run", fmt.Sprintf("message avec type inconnu: type=%s data=%v", msg.Type, msg.Data))
 	}

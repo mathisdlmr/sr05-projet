@@ -8,6 +8,6 @@ Chaque membre s'est occupé d'une section du code et de la documentation corresp
 
 *Éric* : Partie contrôle - adaptation des sauvegardes réparties. IA : recherches sur le group membership et rédaction de commentaires de code.
 
-*Mathis* : Partie Application - Adaptation de l'application pour supporter les départs et arrivées
+*Mathis* : Réalisation des divers scripts utilisés + Partie Applicative - Adaptation de l'application pour supporter les départs et arrivées. Utilisation de l'IA uniquement en tant qu'agent d'autocomplétion dans l'IDE.
 
 *Elias* : Développement de la couche net

@@ -29,7 +29,7 @@ Notre approche pour utiliser cette méthode était que chaque message transitant
 ```
 
 À la réception d'un tel message, le script met à jour la liste des destinations du site concerné puis relance le `tee` correspondant. L'ajout ou le retrait d'un participant se ramène alors à quelques messages `addLink` / `removeLink` que le script applique lui-même.
-Pour mieux visualiser cette approche, le script initialement imaginé est toujours disponible dans le projet, dans #link("../scripts/local_net.sh")[scripts/local_net.sh]
+Pour mieux visualiser cette approche, le script initialement imaginé est toujours disponible dans le projet, dans #link("../scripts/local_net_v0.sh")[scripts/local_net_v0.sh]
 
 #figure(
   image("../assets/local_net.png", width: 80%),
@@ -38,9 +38,8 @@ Pour mieux visualiser cette approche, le script initialement imaginé est toujou
 
 #figure(
   image("../assets/local_net_algorithm.png", width: 80%),
-  caption: [Schématisation du fonctionnement de local_net.sh],
+  caption: [Schématisation du premier réseau imaginé],
 )
-
 
 Cette solution a le mérite d'être simple, mais elle présente un défaut rédhibitoire : *le réseau n'est plus du tout décentralisé*. Une entité centrale (le script) observe l'intégralité du trafic et détient seule le pouvoir de reconfigurer la topologie. Cela contredit directement l'esprit du projet, où le contrôle est réparti entre les sites.
 
@@ -48,12 +47,14 @@ Cette solution a le mérite d'être simple, mais elle présente un défaut rédh
 
 Pour rétablir la décentralisation, l'idée est que *chaque site manipule lui-même ses propres entrées et sorties*, sans intermédiaire central. Le script ne sert plus qu'à mettre en place l'anneau initial ; toute évolution ultérieure est prise en charge par les sites eux-mêmes.
 
-Lorsqu'un site souhaite rejoindre le réseau, il ne peut pas s'y greffer de lui-même : il demande à un membre du réseau de l'ajouter. Cette demande déclenche un *algorithme d'élection* qui désigne le site chargé de le parrainer. Faire passer l'intégration par une élection présente un avantage : elle donne la main sur les critères d'admission et les restrictions que l'on souhaite imposer (par exemple écarter de l'élection un site dont la latence est trop élevée, limiter le parrainage à une certaine proximité, etc.).
+Lorsqu'un site souhaite rejoindre le réseau, il ne peut pas s'y greffer de lui-même : il demande à un membre du réseau de l'ajouter. Cette demande déclenche un *algorithme d'élection* qui désigne le site chargé de le parrainer. Faire passer l'intégration par une élection présente un avantage : elle donne la main sur les critères d'admission et les restrictions que l'on souhaite imposer (par exemple écarter de l'élection un site dont la latence est trop élevée, limiter le parrainage à une certaine proximité, limiter le degré d'un noeud, etc.).
 
-Une fois le parrain élu, celui-ci reconfigure lui-même ses liens : il interrompt son `tee` courant et en recrée un nouveau pointant vers son contrôle local et vers le nouveau site, puis envoie un message à l'arrivant pour que ce dernier établisse à son tour ses liens vers son propre contrôle et vers le site qui était jusque-là le successeur du parrain. Le nouveau site est ainsi inséré dans l'anneau comme un maillon dans une liste chaînée.
+Une fois le parrain élu dans le réseau, celui-ci reconfigure lui-même ses liens : il interrompt son `tee` courant, en recrée un nouveau pointant vers son contrôle local et vers le nouveau site, puis envoie un message. Une fois que l'arrivant a reçu le message de son parrain, ce dernier établit à son tour ses liens vers son propre contrôle et vers le site qui était jusque-là le successeur de son parrain. Le nouveau site est ainsi inséré dans l'anneau comme un maillon dans une liste chaînée. D'un point de vue implémentation, toute cette charge sera supporter par notre nouveau composant inséré sur chaque site : *le net*.
 
-// TODO : insérer un schéma illustrant l'insertion décentralisée
-//        (parrain qui recrée son tee, puis branchement du nouveau site).
+#figure(
+  image("../assets/local_net_distributed.png", width: 80%),
+  caption: [Schématisation du réseau complètement distribué],
+)
 
 On obtient alors un fonctionnement *complètement réparti*, à l'exception du script qui crée l'anneau de départ. Cette propriété rend d'ailleurs la solution indépendante de la topologie initiale : elle fonctionnerait vraisemblablement quel que soit le format du réseau (à confirmer), pourvu que deux conditions soient réunies : des canaux *FIFO* (pour ne perdre aucun message) et un mécanisme permettant à un site extérieur de *demander* à rejoindre le réseau.
 
@@ -65,7 +66,7 @@ Cette approche impose toutefois un certain nombre de précautions, que l'implém
 - *mettre à jour les contrôleurs* avec le nouveau nombre de sites, afin que les mécanismes qui en dépendent (capture d'instantanés, horloges vectorielles, file d'attente répartie) restent corrects
 - à l'arrivée, le nouveau venu *spectate* jusqu'à la partie suivante (il n'entre pas dans une partie déjà commencée)
 - au départ volontaire, le joueur correspondant est retiré (_kill_) proprement
-- gérer la *déconnexion brutale* d'un site : être capable d'intercepter un signal d'arrêt (`SIGKILL`/`SIGTERM`) pour émettre un message de `leave` avant de disparaître
+- gérer la *déconnexion brutale* d'un site : être capable d'intercepter un signal d'arrêt (`SIGKILL`/`SIGTERM`) pour émettre un message de `leave` avant de disparaître. Une autre possibilité consiste à pouvoir catch des erreurs de type `SIGPIPE` sur son successeur, et ainsi se brancher au successeur de son successeurs si on remarque ne plus réussir à contacter son successeur.
 
 === Choix retenu
 

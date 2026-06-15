@@ -41,6 +41,8 @@ export interface SnapshotControlState {
   queue: Record<string, SnapshotQueueEntry>   // clé = siteID stringifié
   bilan: number
   vectorClock: Record<string, number>         // clé = siteID stringifié
+  lamportClocks: Record<string, number>       // clé = siteID stringifié
+  view: number                                // numéro de vue (membership)
 }
 
 export interface SnapshotSiteState {

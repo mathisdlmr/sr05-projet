@@ -34,6 +34,10 @@ function SiteCard({ siteId, site }: { siteId: string; site: SnapshotSiteState })
   // on itère les entrées triées par identifiant de site.
   const byId = (a: [string, unknown], b: [string, unknown]) => Number(a[0]) - Number(b[0])
   const vc = '[' + Object.entries(site.vectorClock).sort(byId).map(([, v]) => v).join(', ') + ']'
+  const lamport = Object.entries(site.controlState.lamportClocks)
+    .sort(byId)
+    .map(([id, v]) => `${id}:${v}`)
+    .join(' ')
   const players = app.players ?? {}
   const votes = app.votes ?? {}
   const playersList = Object.entries(players)
@@ -58,7 +62,12 @@ function SiteCard({ siteId, site }: { siteId: string; site: SnapshotSiteState })
       </div>
       <div style={{ fontSize: '0.85em', display: 'grid', gap: 4 }}>
         <div><strong>Phase :</strong> {app.phase ?? '?'}</div>
+        <div><strong>Vue :</strong> {site.controlState.view}</div>
         <div><strong>Bilan Control :</strong> {site.controlState.bilan}</div>
+        <div>
+          <strong>Horloges de Lamport :</strong>{' '}
+          <code style={{ fontSize: '0.85em' }}>{lamport}</code>
+        </div>
         <div>
           <strong>Queue mutex :</strong>{' '}
           <code style={{ fontSize: '0.85em' }}>
@@ -116,8 +125,8 @@ function SnapshotModal({ eg, onClose }: { eg: SnapshotEG; onClose: () => void })
         </div>
 
         <p style={{ fontSize: '0.9em', color: 'var(--text-muted)', marginTop: 0 }}>
-          État global cohérent capturé par l'algorithme 11 (Lai-Yang + reconstitution).
-          Date = collection des horloges vectorielles par site.
+          État global cohérent capturé à un instant de coupe.
+          Daté par les horloges vectorielles de chaque site.
         </p>
 
         <h3 style={{ marginTop: 16 }}>États locaux ({siteIds.length} site{siteIds.length > 1 ? 's' : ''})</h3>
@@ -152,7 +161,7 @@ export function SnapshotControl({ state, send }: Props) {
         <button
           className="btn btn-primary"
           onClick={() => send('startSnapshot')}
-          title="Déclenche une capture distribuée (algo 11)"
+          title="Déclenche une capture distribuée de l'état global"
         >
           Sauvegarder
         </button>

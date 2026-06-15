@@ -2,6 +2,7 @@ package control
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/sr05-projet/pkg/transport"
 )
@@ -86,6 +87,8 @@ func (c *Control) handleApplicationMessage(msg *transport.Message) {
 			Type:   transport.TypeControl,
 			Action: transport.ActionDepart,
 		})
+		// on exit
+		os.Exit(0)
 	}
 
 	// Réponse de l'app à une demande de snapshot d'état (init filleul hors mode freeze)

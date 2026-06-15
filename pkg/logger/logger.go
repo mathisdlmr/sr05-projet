@@ -19,7 +19,7 @@ const (
 	raz    = "\033[0;00m"
 )
 
-// On associe à notre Logger Go un nom du processus et son PID 
+// On associe à notre Logger Go un nom du processus et son PID
 // (comme dans la partie 3 sur Moodle, question de lisibilité)
 type Logger struct {
 	name string

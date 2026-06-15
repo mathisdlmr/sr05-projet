@@ -194,4 +194,3 @@ func (a *App) sendGameEnd() {
 	})
 	a.log.Info("sendGameEnd", "fin de partie, vainqueur: "+winner)
 }
-

@@ -86,9 +86,7 @@ func (c *Net) Run() {
 			continue
 		}
 		c.log.Info("Run", fmt.Sprintf("message reçu: %v", msg))
-
 		c.handleMessage(*msg)
-		// TODO : traiter le message
 	}
 }
 
@@ -134,12 +132,10 @@ func (c *Net) handleMessage(msg transport.Message) {
 			}
 			c.sendToControl(msg)
 		}
-
 	}
 }
 
 func (c *Net) create_tee() {
-
 	c.myTeePid = c.tee_redirect(
 		filename(c.myID, "net", "out"),
 		filename(c.myID, "ctl", "in"),

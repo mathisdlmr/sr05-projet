@@ -185,7 +185,6 @@ func (c *Control) WaitingForInit() {
 
 		c.HandleMessage(msg)
 	}
-
 }
 
 func (c *Control) ReadNextMessage() (*transport.Message, error) {

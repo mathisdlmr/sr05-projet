@@ -53,7 +53,6 @@ func (c *Net) handleElectionMessage(msg transport.Message) {
 }
 
 func (c *Net) handleElectionEnd() {
-
 	if c.tryingToLeave {
 		success := c.TryLeavingIfPossible()
 		if success {

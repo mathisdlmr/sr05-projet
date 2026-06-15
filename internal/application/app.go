@@ -205,7 +205,7 @@ func (a *App) handleFromControl(line string) {
 		})
 		a.log.Warn("handleFromControl", "snapshot refusé : "+msg.Data["reason"])
 		return
-		
+
 	// Quand on reçoit un BeginCS, ça veut dire que notre demande de section critique a été acceptée,
 	// et qu'on peut appliquer l'action en attente (pending) et envoyer un EndCS
 	case transport.ActionBeginCS:

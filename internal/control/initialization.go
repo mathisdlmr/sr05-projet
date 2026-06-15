@@ -30,7 +30,6 @@ func (c *Control) sendInitToSite(appState string, siteID int) {
 			"target":    strconv.Itoa(siteID),
 		},
 	})
-
 }
 
 // Un site vient de terminer de s'initialiser, il nous en informe
@@ -41,7 +40,6 @@ func (c *Control) handleNewSiteAdded(msg *transport.Message) {
 		Action: transport.ActionSiteAjoute,
 		Data:   map[string]string{"id": "J" + strconv.Itoa(msg.Sender)},
 	})
-
 }
 
 // On est le parrain, on doit initialiser un nouveau site

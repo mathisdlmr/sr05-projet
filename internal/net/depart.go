@@ -31,10 +31,8 @@ func (c *Net) TryLeavingIfPossible() bool {
 }
 
 func (c *Net) handleDepart(msg transport.Message) {
-
 	if msg.Sender == c.myID {
 		os.Exit(3)
-
 		return
 	}
 

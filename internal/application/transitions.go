@@ -71,7 +71,6 @@ func (a *App) transitionFromStart() {
 	})
 
 	a.log.Info("transitionFromStart", "partie démarrée, rôle local: "+string(a.myRole))
-
 }
 
 func (a *App) transitionToNight() {

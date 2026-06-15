@@ -17,6 +17,7 @@ function roleLabel(role: string): { label: string; emoji: string } {
 export function EndPhase({ state, send }: Props) {
   const isWolvesWin = state.winner === 'WOLVES'
   const players = Object.values(state.players)
+  const notEnoughPlayers = players.length < 3
 
   const wolves    = players.filter(p => p.role === 'WOLF')
   const villagers = players.filter(p => p.role === 'VILLAGER')
@@ -86,9 +87,17 @@ export function EndPhase({ state, send }: Props) {
         </div>
       </div>
 
+      {notEnoughPlayers && (
+        <p style={{ color: 'var(--gold)', textAlign: 'center', marginTop: '8px', fontSize: '0.875rem' }}>
+          Il faut au moins 3 joueurs pour relancer ({players.length}/3).
+          Faites rejoindre un nouveau site avec :{' '}
+          <code>./scripts/join_site.sh &lt;id_d_un_site_pas_utilise&gt; &lt;id_d_un_site_en_partie&gt;</code>
+        </p>
+      )}
       <div className="btn-row" style={{ justifyContent: 'center', marginTop: '8px' }}>
         <button
           className="btn btn-primary btn-lg"
+          disabled={notEnoughPlayers}
           onClick={() => send('restart')}
         >
           Rejouer

@@ -8,6 +8,7 @@ interface Props {
 export function Lobby({ state, send }: Props) {
   const playerList = Object.values(state.players)
   const nbJoined = playerList.length
+  const notEnoughPlayers = nbJoined < 3
 
   return (
     <>
@@ -45,8 +46,16 @@ export function Lobby({ state, send }: Props) {
         <p style={{ color: 'var(--text-muted)', marginBottom: '16px', fontSize: '0.875rem' }}>
           La partie démarre quand tous les joueurs attendus sont présents.
         </p>
+        {notEnoughPlayers && (
+          <p style={{ color: 'var(--gold)', marginBottom: '16px', fontSize: '0.875rem' }}>
+            Il faut au moins 3 joueurs pour démarrer ({nbJoined}/3).
+            Faites rejoindre un nouveau site avec :{' '}
+            <code>./scripts/join_site.sh &lt;id_dun_site_pas_utilise&gt; &lt;id_dun_site_en_partie&gt;</code>
+          </p>
+        )}
         <button
           className="btn btn-success btn-lg"
+          disabled={notEnoughPlayers}
           onClick={() => send('start')}
         >
           Démarrer la partie

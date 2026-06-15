@@ -13,7 +13,7 @@
 #   control_i      --stdout-->  application_i (local) + net_i
 #   net_i          --stdout-->  control_i (local) + net_{i+1} (anneau)
 
-NB_SITES=3
+NB_SITES=4
 BASE_PORT=${1:-4444}
 
 # Se placer à la racine du projet quel que soit le cwd d'appel

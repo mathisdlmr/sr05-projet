@@ -115,12 +115,23 @@ func (a *App) handleDistributedAction(data map[string]string) {
 
 // applyDepart - marque un joueur comme mort suite à son départ du réseau
 func (a *App) applyDepart(playerID string) {
-	if _, ok := a.state.Players[playerID]; !ok {
+	p, ok := a.state.Players[playerID]
+	if !ok {
 		a.log.Warn("applyDepart", "joueur inconnu: "+playerID)
 		return
 	}
 
-	p := a.state.Players[playerID]
+	if a.state.Phase == PhaseLobby {
+		delete(a.state.Players, playerID)
+		delete(a.state.Votes, playerID)
+		a.pushEvent(map[string]interface{}{
+			"type":     "playerLeft",
+			"playerId": playerID,
+		})
+		a.log.Info("applyDepart", "joueur parti (lobby): "+playerID)
+		return
+	}
+
 	p.Alive = false
 	a.state.Players[playerID] = p
 	delete(a.state.Votes, playerID)
@@ -128,6 +139,7 @@ func (a *App) applyDepart(playerID string) {
 	a.pushEvent(map[string]interface{}{
 		"type":     "playerLeft",
 		"playerId": playerID,
+		"role":     string(p.Role),
 	})
 	a.log.Info("applyDepart", "joueur parti: "+playerID)
 

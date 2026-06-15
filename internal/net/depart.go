@@ -55,10 +55,10 @@ func (c *Net) handleDepart(msg transport.Message) {
 		delete(msg.Data, "pendingElections")
 	}
 
-	c.sendMessage(msg) // Forward on ring
+	c.io.Send(msg.String()) // Forward on ring
 
 	msg.Type = transport.TypeControl // Send to control
-	c.sendMessage(msg)
+	c.sendToControl(msg)
 
 	if msg.Sender == c.nextSiteId { // "enjamber le site suivant qui souhaite être supprimé"
 		newSiteToConnectTo, _ := strconv.Atoi(msg.Data["nextSite"])
